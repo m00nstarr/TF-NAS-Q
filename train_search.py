@@ -396,9 +396,9 @@ def train_w_arch(train_queue, val_queue, model, criterion, optimizer_w, optimize
 		for param in model.module.arch_parameters():
 			param.requires_grad = False
 		
-		logits_w_gumbel, _ = model(x_w, sampling=True, mode='gumbel')
+		logits_w_gumbel, _ , _= model(x_w, sampling=True, mode='gumbel')
 		loss_w_gumbel = criterion(logits_w_gumbel, target_w)
-		logits_w_random, _ = model(x_w, sampling=True, mode='random')
+		logits_w_random, _ , _= model(x_w, sampling=True, mode='random')
 		loss_w_random = criterion(logits_w_random, target_w)
 		loss_w = loss_w_gumbel + loss_w_random
 		

@@ -221,7 +221,7 @@ def count_activation_size(net, input_size=(1, 3, 224, 224), require_backward=Tru
 
 	x = torch.zeros(input_size).cuda()#.to(model.parameters().__next__().device)
 	with torch.no_grad():
-		model(x, sampling = False)
+		model(x, sampling = False, mode= 'max')
 
 	memory_info_dict = {
 		'peak_activation_size': torch.zeros(1).cuda(),
@@ -229,7 +229,7 @@ def count_activation_size(net, input_size=(1, 3, 224, 224), require_backward=Tru
 		'residual_size': torch.zeros(1).cuda(),
 	}
 
-	model.module.cuda()
+	model.cuda()
 	for m in model.modules():
 		if len(list(m.children())) == 0:
 			def new_forward(_module):
@@ -264,6 +264,6 @@ def count_activation_size(net, input_size=(1, 3, 224, 224), require_backward=Tru
 
 	x = torch.zeros(input_size).cuda()#.to(model.parameters().__next__().device)
 	with torch.no_grad():
-		model(x, sampling = False)
+		model(x, sampling = False, mode = 'max')
 
 	return memory_info_dict['peak_activation_size'].item(), memory_info_dict['grad_activation_size'].item()

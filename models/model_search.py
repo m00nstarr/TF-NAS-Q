@@ -201,10 +201,12 @@ class MixedStage(nn.Module):
 			input_shape = list(x.shape)
 			input_shape[0] = 1
 			input_shape = tuple(input_shape)
-			activation_memory = count_activation_size(self.block1, input_size = input_shape, require_backward= False)[0]
-			activation_q_memory = count_activation_size(self.block1, input_size = input_shape, require_backward = False, activation_bits=8)[0]
-			activation_list.append(activation_memory)
-			activation_q_list.append(activation_q_memory)
+			
+			if sampling == False:
+				activation_memory = count_activation_size(self.block1, input_size = input_shape, require_backward= False)[0]
+				activation_q_memory = count_activation_size(self.block1, input_size = input_shape, require_backward = False, activation_bits=8)[0]
+				activation_list.append(activation_memory)
+				activation_q_list.append(activation_q_memory)
 
 		# stage1
 		elif self.stage_type == 1:
@@ -215,10 +217,12 @@ class MixedStage(nn.Module):
 			input_shape = list(x.shape)
 			input_shape[0] = 1
 			input_shape = tuple(input_shape)
-			activation_memory = count_activation_size(self.block1, input_size = input_shape, require_backward= False)[0]
-			activation_q_memory = count_activation_size(self.block1, input_size = input_shape, require_backward = False, activation_bits=8)[0]
-			activation_list.append(activation_memory)
-			activation_q_list.append(activation_q_memory)
+
+			if sampling == False:
+				activation_memory = count_activation_size(self.block1, input_size = input_shape, require_backward= False)[0]
+				activation_q_memory = count_activation_size(self.block1, input_size = input_shape, require_backward = False, activation_bits=8)[0]
+				activation_list.append(activation_memory)
+				activation_q_list.append(activation_q_memory)
 
 			out2, out2_q, lat2 = self.block2(out1, sampling, mode)
 			res_list.append(out2)
@@ -227,10 +231,12 @@ class MixedStage(nn.Module):
 			input_shape = list(out1.shape)
 			input_shape[0] = 1
 			input_shape = tuple(input_shape)
-			activation_memory = count_activation_size(self.block2, input_size = input_shape, require_backward= False)[0]
-			activation_q_memory = count_activation_size(self.block2, input_size = input_shape, require_backward = False, activation_bits=8)[0]
-			activation_list.append(activation_memory)
-			activation_q_list.append(activation_q_memory)
+
+			if sampling == False:
+				activation_memory = count_activation_size(self.block2, input_size = input_shape, require_backward= False)[0]
+				activation_q_memory = count_activation_size(self.block2, input_size = input_shape, require_backward = False, activation_bits=8)[0]
+				activation_list.append(activation_memory)
+				activation_q_list.append(activation_q_memory)
 
 		# stage2
 		elif self.stage_type == 2:
@@ -241,10 +247,12 @@ class MixedStage(nn.Module):
 			input_shape = list(x.shape)
 			input_shape[0] = 1
 			input_shape = tuple(input_shape)
-			activation_memory = count_activation_size(self.block1, input_size = input_shape, require_backward= False)[0]
-			activation_q_memory = count_activation_size(self.block1, input_size = input_shape, require_backward = False, activation_bits=8)[0]
-			activation_list.append(activation_memory)
-			activation_q_list.append(activation_q_memory)
+
+			if sampling == False:
+				activation_memory = count_activation_size(self.block1, input_size = input_shape, require_backward= False)[0]
+				activation_q_memory = count_activation_size(self.block1, input_size = input_shape, require_backward = False, activation_bits=8)[0]
+				activation_list.append(activation_memory)
+				activation_q_list.append(activation_q_memory)
 
 			out2, out2_q, lat2 = self.block2(out1, sampling, mode)
 			res_list.append(out2)
@@ -253,10 +261,12 @@ class MixedStage(nn.Module):
 			input_shape = list(out1.shape)
 			input_shape[0] = 1
 			input_shape = tuple(input_shape)
-			activation_memory = count_activation_size(self.block2, input_size = input_shape, require_backward= False)[0]
-			activation_q_memory = count_activation_size(self.block2, input_size = input_shape, require_backward = False, activation_bits=8)[0]
-			activation_list.append(activation_memory)
-			activation_q_list.append(activation_q_memory)
+
+			if sampling == False:
+				activation_memory = count_activation_size(self.block2, input_size = input_shape, require_backward= False)[0]
+				activation_q_memory = count_activation_size(self.block2, input_size = input_shape, require_backward = False, activation_bits=8)[0]
+				activation_list.append(activation_memory)
+				activation_q_list.append(activation_q_memory)
 
 			out3, out3_q, lat3 = self.block3(out2, sampling, mode)
 			res_list.append(out3)
@@ -265,10 +275,12 @@ class MixedStage(nn.Module):
 			input_shape = list(out2.shape)
 			input_shape[0] = 1
 			input_shape = tuple(input_shape)
-			activation_memory = count_activation_size(self.block3, input_size = input_shape, require_backward= False)[0]
-			activation_q_memory = count_activation_size(self.block3, input_size = input_shape, require_backward = False, activation_bits=8)[0]
-			activation_list.append(activation_memory)
-			activation_q_list.append(activation_q_memory)
+
+			if sampling == False:
+				activation_memory = count_activation_size(self.block3, input_size = input_shape, require_backward= False)[0]
+				activation_q_memory = count_activation_size(self.block3, input_size = input_shape, require_backward = False, activation_bits=8)[0]
+				activation_list.append(activation_memory)
+				activation_q_list.append(activation_q_memory)
 
 		# stage3, stage4, stage5
 		elif self.stage_type == 3:
@@ -279,10 +291,12 @@ class MixedStage(nn.Module):
 			input_shape = list(x.shape)
 			input_shape[0] = 1
 			input_shape = tuple(input_shape)
-			activation_memory = count_activation_size(self.block1, input_size = input_shape, require_backward= False)[0]
-			activation_q_memory = count_activation_size(self.block1, input_size = input_shape, require_backward = False, activation_bits=8)[0]
-			activation_list.append(activation_memory)
-			activation_q_list.append(activation_q_memory)
+
+			if sampling == False:
+				activation_memory = count_activation_size(self.block1, input_size = input_shape, require_backward= False)[0]
+				activation_q_memory = count_activation_size(self.block1, input_size = input_shape, require_backward = False, activation_bits=8)[0]
+				activation_list.append(activation_memory)
+				activation_q_list.append(activation_q_memory)
 
 			out2, out2_q, lat2 = self.block2(out1, sampling, mode)
 			res_list.append(out2)
@@ -291,10 +305,12 @@ class MixedStage(nn.Module):
 			input_shape = list(out1.shape)
 			input_shape[0] = 1
 			input_shape = tuple(input_shape)
-			activation_memory = count_activation_size(self.block2, input_size = input_shape, require_backward= False)[0]
-			activation_q_memory = count_activation_size(self.block2, input_size = input_shape, require_backward = False, activation_bits=8)[0]
-			activation_list.append(activation_memory)
-			activation_q_list.append(activation_q_memory)
+
+			if sampling == False:
+				activation_memory = count_activation_size(self.block2, input_size = input_shape, require_backward= False)[0]
+				activation_q_memory = count_activation_size(self.block2, input_size = input_shape, require_backward = False, activation_bits=8)[0]
+				activation_list.append(activation_memory)
+				activation_q_list.append(activation_q_memory)
 
 			out3, out3_q, lat3 = self.block3(out2, sampling, mode)
 			res_list.append(out3)
@@ -303,10 +319,12 @@ class MixedStage(nn.Module):
 			input_shape = list(out2.shape)
 			input_shape[0] = 1
 			input_shape = tuple(input_shape)
-			activation_memory = count_activation_size(self.block3, input_size = input_shape, require_backward= False)[0]
-			activation_q_memory = count_activation_size(self.block3, input_size = input_shape, require_backward = False, activation_bits=8)[0]
-			activation_list.append(activation_memory)
-			activation_q_list.append(activation_q_memory)
+
+			if sampling == False:
+				activation_memory = count_activation_size(self.block3, input_size = input_shape, require_backward= False)[0]
+				activation_q_memory = count_activation_size(self.block3, input_size = input_shape, require_backward = False, activation_bits=8)[0]
+				activation_list.append(activation_memory)
+				activation_q_list.append(activation_q_memory)
 
 			out4, out4_q, lat4 = self.block4(out3, sampling, mode)
 			res_list.append(out4)
@@ -315,10 +333,12 @@ class MixedStage(nn.Module):
 			input_shape = list(out3.shape)
 			input_shape[0] = 1
 			input_shape = tuple(input_shape)
-			activation_memory = count_activation_size(self.block4, input_size = input_shape, require_backward= False)[0]
-			activation_q_memory = count_activation_size(self.block4, input_size = input_shape, require_backward = False, activation_bits=8)[0]
-			activation_list.append(activation_memory)
-			activation_q_list.append(activation_q_memory)
+
+			if sampling == False:
+				activation_memory = count_activation_size(self.block4, input_size = input_shape, require_backward= False)[0]
+				activation_q_memory = count_activation_size(self.block4, input_size = input_shape, require_backward = False, activation_bits=8)[0]
+				activation_list.append(activation_memory)
+				activation_q_list.append(activation_q_memory)
 
 		else:
 			raise ValueError
