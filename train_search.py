@@ -67,12 +67,12 @@ parser.add_argument('--target_memory', type=float, default = 0.5, help = 'the ta
 
 args = parser.parse_args()
 
-#args.save = os.path.join(args.save, 'search-{}-{}'.format(time.strftime("%Y%m%d-%H%M%S"), args.note))
+args.save = os.path.join(args.save, 'search-{}-{}'.format(time.strftime("%Y%m%d-%H%M%S"), args.note))
 #args.save = os.path.join(args.save,'search-20220413-162213-'+args.note)
 #args.save = os.path.join(args.save,'search-20220414-141341-'+args.note)
 #args.save = os.path.join(args.save,'search-20220418-111514-'+args.note)
-args.save = os.path.join(args.save,'search-20220418-215653-'+args.note)
-#create_exp_dir(args.save, scripts_to_save=None)
+#args.save = os.path.join(args.save,'search-20220418-215653-'+args.note)
+create_exp_dir(args.save, scripts_to_save=None)
 
 log_format = '%(asctime)s %(message)s'
 logging.basicConfig(stream=sys.stdout, level=logging.INFO,
@@ -160,7 +160,7 @@ def main():
 				  transform=val_transform), 
 		batch_size=args.batch_size, shuffle=True, pin_memory=True, num_workers=args.workers)
 
-	for epoch in range(10,args.epochs):
+	for epoch in range(0,args.epochs):
 		
 		mc_num_dddict = get_mc_num_dddict(mc_mask_dddict)
 		model = Network(args.num_classes, mc_num_dddict, lat_lookup)
@@ -355,7 +355,7 @@ def train_wo_arch(train_queue, model, criterion, optimizer_w):
 		x_w = x_w.cuda(non_blocking=True)
 		target_w = target_w.cuda(non_blocking=True)
 
-		logits_w_gumbel, _ = model(x_w, sampling=True, mode='gumbel')
+		logits_w_gumbel, _ , _ = model(x_w, sampling=True, mode='gumbel')
 		loss_w_gumbel = criterion(logits_w_gumbel, target_w)
 		# reset switches of log_alphas
 		model.module.reset_switches()
