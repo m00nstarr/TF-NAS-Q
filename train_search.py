@@ -67,12 +67,13 @@ parser.add_argument('--target_memory', type=float, default = 0.5, help = 'the ta
 
 args = parser.parse_args()
 
-args.save = os.path.join(args.save, 'search-{}-{}'.format(time.strftime("%Y%m%d-%H%M%S"), args.note))
+# args.save = os.path.join(args.save, 'search-{}-{}'.format(time.strftime("%Y%m%d-%H%M%S"), args.note))
 #args.save = os.path.join(args.save,'search-20220413-162213-'+args.note)
 #args.save = os.path.join(args.save,'search-20220414-141341-'+args.note)
 #args.save = os.path.join(args.save,'search-20220418-111514-'+args.note)
-#args.save = os.path.join(args.save,'search-20220418-215653-'+args.note)
-create_exp_dir(args.save, scripts_to_save=None)
+args.save = os.path.join(args.save,'search-20220420-195611-'+args.note)
+
+# create_exp_dir(args.save, scripts_to_save=None)
 
 log_format = '%(asctime)s %(message)s'
 logging.basicConfig(stream=sys.stdout, level=logging.INFO,
@@ -93,11 +94,8 @@ def main():
 	cudnn.benchmark = True
 	logging.info("args = %s", args)
 
-	with open(args.lookup_path, 'rb') as f:
-		lat_lookup = pickle.load(f)
-
 	mc_maxnum_dddict = get_mc_num_dddict(mc_mask_dddict, is_max=True)
-	model = Network(args.num_classes, mc_maxnum_dddict, lat_lookup)
+	model = Network(args.num_classes, mc_maxnum_dddict)
 	model = torch.nn.DataParallel(model).cuda()
 	model.module.set_temperature(args.T)
 	logging.info("param size = %fMB", count_parameters_in_MB(model))
@@ -143,7 +141,7 @@ def main():
 
 	val_transform = transforms.Compose([
 			#transforms.Resize(256),
-			transforms.CenterCrop(224),
+			# transforms.CenterCrop(224),
 			transforms.ToTensor(),
 			normalize,
 		])
@@ -160,10 +158,10 @@ def main():
 				  transform=val_transform), 
 		batch_size=args.batch_size, shuffle=True, pin_memory=True, num_workers=args.workers)
 
-	for epoch in range(0,args.epochs):
+	for epoch in range(10,args.epochs):
 		
 		mc_num_dddict = get_mc_num_dddict(mc_mask_dddict)
-		model = Network(args.num_classes, mc_num_dddict, lat_lookup)
+		model = Network(args.num_classes, mc_num_dddict)
 		model = torch.nn.DataParallel(model).cuda()
 		model.module.set_temperature(args.T)
 
@@ -218,7 +216,6 @@ def main():
 		#logging.info("peak activation memory size = %fMB", count_activation_size(model)[0]/1048576.0)
 		
 		op_weights, depth_weights, quantized_weights = get_op_and_depth_weights(model)
-		parsed_arch = parse_architecture(op_weights, depth_weights, quantized_weights)
 		
 		# training
 		epoch_start = time.time()
@@ -280,57 +277,6 @@ def main():
 						state_dict[se_ce_b_key].data[index] = state_dict_from_model[se_ce_b_key]
 		del state_dict_from_model, index
 
-		# shrink and expand
-		if epoch >= 10:
-			logging.info('Now shrinking or expanding the arch')
-			op_weights, depth_weights, quantized_weights = get_op_and_depth_weights(model)
-			
-			#parsed_arch, block 별 quantization 유무 넣었음. 
-			parsed_arch = parse_architecture(op_weights, depth_weights, quantized_weights)
-			mc_num_dddict = get_mc_num_dddict(mc_mask_dddict)
-			before_lat = get_lookup_latency(parsed_arch, mc_num_dddict, lat_lookup_key_dddict, lat_lookup)
-			logging.info('Before, the current lat: {:.4f}, the target lat: {:.4f}'.format(before_lat, args.target_lat))
-
-			if before_lat > args.target_lat:
-				logging.info('Shrinking......')
-				stages = ['stage{}'.format(x) for x in range(1,7)]
-				mc_num_dddict, after_lat = fit_mc_num_by_latency(parsed_arch, mc_num_dddict, mc_maxnum_dddict, 
-														lat_lookup_key_dddict, lat_lookup, args.target_lat, stages, sign=-1)
-				for start in range(2,7):
-					stages = ['stage{}'.format(x) for x in range(start,7)]
-					mc_num_dddict, after_lat = fit_mc_num_by_latency(parsed_arch, mc_num_dddict, mc_maxnum_dddict, 
-														lat_lookup_key_dddict, lat_lookup, args.target_lat, stages, sign=1)
-			elif before_lat < args.target_lat:
-				logging.info('Expanding......')
-				stages = ['stage{}'.format(x) for x in range(1,7)]
-				mc_num_dddict, after_lat = fit_mc_num_by_latency(parsed_arch, mc_num_dddict, mc_maxnum_dddict, 
-														lat_lookup_key_dddict, lat_lookup, args.target_lat, stages, sign=1)
-				for start in range(2,7):
-					stages = ['stage{}'.format(x) for x in range(start,7)]
-					mc_num_dddict, after_lat = fit_mc_num_by_latency(parsed_arch, mc_num_dddict, mc_maxnum_dddict,
-														lat_lookup_key_dddict, lat_lookup, args.target_lat, stages, sign=1)
-			else:
-				logging.info('No opeartion')
-				after_lat = before_lat
-
-			# change mc_mask_dddict based on mc_num_dddict
-			for stage in parsed_arch:
-				for block in parsed_arch[stage][0]:
-					op_idx = parsed_arch[stage][0][block]
-					if mc_num_dddict[stage][block][op_idx] != int(sum(mc_mask_dddict[stage][block][op_idx]).item()):
-						mc_num = mc_num_dddict[stage][block][op_idx]
-						max_mc_num = mc_mask_dddict[stage][block][op_idx].size(0)
-						mc_mask_dddict[stage][block][op_idx].data[[True]*max_mc_num] = 0.0
-						key = 'module.{}.{}.m_ops.{}.depth_conv.conv.weight'.format(stage, block, op_idx)
-						weight_copy = state_dict[key].clone().abs().cpu().numpy()
-						weight_l1_norm = np.sum(weight_copy, axis=(1,2,3))
-						weight_l1_order = np.argsort(weight_l1_norm)
-						weight_l1_order_rev = weight_l1_order[::-1][:mc_num]
-						mc_mask_dddict[stage][block][op_idx].data[weight_l1_order_rev.tolist()] = 1.0
-
-			logging.info('After, the current lat: {:.4f}, the target lat: {:.4f}'.format(after_lat, args.target_lat))
-
-
 		# save model
 		model_path = os.path.join(args.save, 'searched_model_{:02}.pth.tar'.format(epoch+1))
 		torch.save({
@@ -355,7 +301,7 @@ def train_wo_arch(train_queue, model, criterion, optimizer_w):
 		x_w = x_w.cuda(non_blocking=True)
 		target_w = target_w.cuda(non_blocking=True)
 
-		logits_w_gumbel, _ , _ = model(x_w, sampling=True, mode='gumbel')
+		logits_w_gumbel, _ = model(x_w, sampling=True, mode='gumbel')
 		loss_w_gumbel = criterion(logits_w_gumbel, target_w)
 		# reset switches of log_alphas
 		model.module.reset_switches()
@@ -380,7 +326,6 @@ def train_wo_arch(train_queue, model, criterion, optimizer_w):
 
 def train_w_arch(train_queue, val_queue, model, criterion, optimizer_w, optimizer_a):
 	objs_a = AverageMeter()
-	objs_l = AverageMeter()
 	objs_w = AverageMeter()
 	top1   = AverageMeter()
 	top5   = AverageMeter()
@@ -396,9 +341,9 @@ def train_w_arch(train_queue, val_queue, model, criterion, optimizer_w, optimize
 		for param in model.module.arch_parameters():
 			param.requires_grad = False
 		
-		logits_w_gumbel, _ , _= model(x_w, sampling=True, mode='gumbel')
+		logits_w_gumbel, _ = model(x_w, sampling=True, mode='gumbel')
 		loss_w_gumbel = criterion(logits_w_gumbel, target_w)
-		logits_w_random, _ , _= model(x_w, sampling=True, mode='random')
+		logits_w_random, _ = model(x_w, sampling=True, mode='random')
 		loss_w_random = criterion(logits_w_random, target_w)
 		loss_w = loss_w_gumbel + loss_w_random
 		
@@ -430,17 +375,15 @@ def train_w_arch(train_queue, val_queue, model, criterion, optimizer_w, optimize
 			for param in model.module.arch_parameters():
 				param.requires_grad = True
 
-			logits_a, lat, peak_memory = model(x_a, sampling=False)
+			logits_a, peak_memory = model(x_a, sampling=False)
 			loss_a = criterion(logits_a, target_a)
-			loss_l = torch.abs(lat / args.target_lat - 1.) * args.lambda_lat
 			
 			#quantization loss 함수 정의 후 추가하였음
 			#peak memory 와 argument로 주어지는 hyperparameter 의 값에 근접하게 
 			loss_q = abs((peak_memory/1048576.0) / args.target_memory - 1.) * 0.1
 
-			loss = loss_a + loss_l + loss_q
+			loss = loss_a + loss_q
 
-			#logging.info("loss_q : %f", count_activation_size(model)[0]/1048576.0)
 			optimizer_a.zero_grad()
 			loss.backward()
 			if args.grad_clip > 0:
@@ -453,12 +396,11 @@ def train_w_arch(train_queue, val_queue, model, criterion, optimizer_w, optimize
 			
 			n = x_a.size(0)
 			objs_a.update(loss_a.item(), n)
-			objs_l.update(loss_l.item(), n)
 
 
 		if step % args.print_freq == 0:
-			logging.info('TRAIN w_Arch Step: %04d Objs_W: %f R1: %f R5: %f Objs_A: %f Objs_L: %f loss_l: %f loss_q: %f' , 
-						  step, objs_w.avg, top1.avg, top5.avg, objs_a.avg, objs_l.avg, loss_l, loss_q)
+			logging.info('TRAIN w_Arch Step: %04d Objs_W: %f R1: %f R5: %f Objs_A: %f loss_q: %f' , 
+						  step, objs_w.avg, top1.avg, top5.avg, objs_a.avg, loss_q)
 
 	return top1.avg
 
@@ -476,7 +418,7 @@ def validate(val_queue, model, criterion):
 		x = x.cuda(non_blocking=True)
 		target = target.cuda(non_blocking=True)
 		with torch.no_grad():
-			logits, _ = model(x, sampling=True, mode='gumbel')
+			logits, _, _, _ = model(x, sampling=True, mode='gumbel')
 			loss = criterion(logits, target)
 		# reset switches of log_alphas
 		model.module.reset_switches()
@@ -491,60 +433,6 @@ def validate(val_queue, model, criterion):
 			logging.info('VALIDATE Step: %04d Objs: %f R1: %f R5: %f', step, objs.avg, top1.avg, top5.avg)
 
 	return top1.avg
-
-
-def get_lookup_latency(parsed_arch, mc_num_dddict, lat_lookup_key_dddict, lat_lookup):
-	lat = lat_lookup['base']
-
-	for stage in parsed_arch:
-		for block in parsed_arch[stage][0]:
-			op_idx = parsed_arch[stage][0][block]
-			mid_channels_key = mc_num_dddict[stage][block][op_idx]
-			lat_lookup_key = lat_lookup_key_dddict[stage][block][op_idx]
-			lat += lat_lookup[lat_lookup_key][mid_channels_key]
-
-	return lat
-
-
-def fit_mc_num_by_latency(parsed_arch, mc_num_dddict, mc_maxnum_dddict, lat_lookup_key_dddict, lat_lookup, target_lat, stages, sign):
-	# sign=1 for expand / sign=-1 for shrink
-	assert sign == -1 or sign == 1
-	lat = get_lookup_latency(parsed_arch, mc_num_dddict, lat_lookup_key_dddict, lat_lookup)
-
-	parsed_mc_num_list = []
-	parsed_mc_maxnum_list = []
-	for stage in stages:
-		for block in parsed_arch[stage][0]:
-			op_idx = parsed_arch[stage][0][block]
-			parsed_mc_num_list.append(mc_num_dddict[stage][block][op_idx])
-			parsed_mc_maxnum_list.append(mc_maxnum_dddict[stage][block][op_idx])
-
-	min_parsed_mc_num = min(parsed_mc_num_list)
-	parsed_mc_ratio_list = [int(round(x/min_parsed_mc_num)) for x in parsed_mc_num_list]
-	parsed_mc_bound_switches = [True] * len(parsed_mc_ratio_list)
-
-	new_mc_num_dddict = copy.deepcopy(mc_num_dddict)
-	new_lat = lat
-
-	while any(parsed_mc_bound_switches) and (sign*new_lat <= sign*target_lat):
-		mc_num_dddict = copy.deepcopy(new_mc_num_dddict)
-		lat = new_lat
-		list_idx = 0
-		for stage in stages:
-			for block in parsed_arch[stage][0]:
-				op_idx = parsed_arch[stage][0][block]
-				new_mc_num = mc_num_dddict[stage][block][op_idx] + sign * parsed_mc_ratio_list[list_idx]
-				new_mc_num, switch = bound_clip(new_mc_num, parsed_mc_maxnum_list[list_idx])
-				new_mc_num_dddict[stage][block][op_idx] = new_mc_num
-				parsed_mc_bound_switches[list_idx] = switch
-				list_idx += 1
-		new_lat = get_lookup_latency(parsed_arch, new_mc_num_dddict, lat_lookup_key_dddict, lat_lookup)
-
-	if sign == -1:
-		mc_num_dddict = copy.deepcopy(new_mc_num_dddict)
-		lat = new_lat
-
-	return mc_num_dddict, lat
 
 def bound_clip(mc_num, max_mc_num):
 	min_mc_num = max_mc_num // 2

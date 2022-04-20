@@ -51,7 +51,7 @@ def parse_architecture(op_weights, depth_weights, quantize_weights):
 			('stage3', [OrderedDict([('block1', -1), ('block2', -1), ('block3', -1), ('block4', -1)]),-1]),
 			('stage4', [OrderedDict([('block1', -1), ('block2', -1), ('block3', -1), ('block4', -1)]),-1]),
 			('stage5', [OrderedDict([('block1', -1), ('block2', -1), ('block3', -1), ('block4', -1)]),-1]),
-			('stage6', [OrderedDict([('block1', -1)]),-1]),
+			# ('stage6', [OrderedDict([('block1', -1)]),-1]),
 		])
 
 	stages = []
