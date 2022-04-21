@@ -15,6 +15,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.backends.cudnn as cudnn
 import torchvision.transforms as transforms
+import torchvision
 
 from tools.utils import AverageMeter, accuracy
 from tools.utils import count_parameters_in_MB
@@ -71,7 +72,7 @@ args = parser.parse_args()
 #args.save = os.path.join(args.save,'search-20220413-162213-'+args.note)
 #args.save = os.path.join(args.save,'search-20220414-141341-'+args.note)
 #args.save = os.path.join(args.save,'search-20220418-111514-'+args.note)
-args.save = os.path.join(args.save,'search-20220420-195611-'+args.note)
+args.save = os.path.join(args.save,'search-20220421-175025-1-'+args.note)
 
 # create_exp_dir(args.save, scripts_to_save=None)
 
@@ -146,17 +147,28 @@ def main():
 			normalize,
 		])
 
-	train_queue = torch.utils.data.DataLoader(
-		ImageList(root=args.img_root, 
-				  list_path=args.train_list, 
-				  transform=train_transform), 
-		batch_size=args.batch_size, shuffle=True, pin_memory=True, num_workers=args.workers)
+	# train_queue = torch.utils.data.DataLoader(
+	# 	ImageList(root=args.img_root, 
+	# 			  list_path=args.train_list, 
+	# 			  transform=train_transform), 
+	# 	batch_size=args.batch_size, shuffle=True, pin_memory=True, num_workers=args.workers)
 
-	val_queue = torch.utils.data.DataLoader(
-		ImageList(root=args.img_root, 
-				  list_path=args.val_list, 
-				  transform=val_transform), 
-		batch_size=args.batch_size, shuffle=True, pin_memory=True, num_workers=args.workers)
+	# val_queue = torch.utils.data.DataLoader(
+	# 	ImageList(root=args.img_root, 
+	# 			  list_path=args.val_list, 
+	# 			  transform=val_transform), 
+	# 	batch_size=args.batch_size, shuffle=True, pin_memory=True, num_workers=args.workers)
+	
+	# cifar-10
+	train_set = torchvision.datasets.CIFAR10(root='./data', train=True,
+                                        download=True, transform=train_transform)
+	train_queue = torch.utils.data.DataLoader(train_set, batch_size=args.batch_size,
+                                 shuffle=True, pin_memory=True, num_workers=args.workers)
+
+	val_set = torchvision.datasets.CIFAR10(root='./data', train=False,
+                              download=True, transform=val_transform)
+	val_queue = torch.utils.data.DataLoader(val_set, batch_size=args.batch_size,
+                                 shuffle=False, pin_memory=True, num_workers=args.workers)
 
 	for epoch in range(10,args.epochs):
 		
@@ -380,7 +392,7 @@ def train_w_arch(train_queue, val_queue, model, criterion, optimizer_w, optimize
 			
 			#quantization loss 함수 정의 후 추가하였음
 			#peak memory 와 argument로 주어지는 hyperparameter 의 값에 근접하게 
-			loss_q = abs((peak_memory/1048576.0) / args.target_memory - 1.) * 0.1
+			loss_q = abs((peak_memory/1048576.0) / args.target_memory - 1.) * 0.4
 
 			loss = loss_a + loss_q
 

@@ -443,7 +443,8 @@ class MBInvertedResBlock(BasicUnit):
 			bias=False,
 			use_bn=True,
 			affine=True,
-			act_func='relu6'):
+			act_func='relu6',
+			act_byte=32):
 		super(MBInvertedResBlock, self).__init__()
 
 		self.in_channels = in_channels
@@ -459,6 +460,8 @@ class MBInvertedResBlock(BasicUnit):
 		self.affine = affine
 		self.act_func = act_func
 		self.drop_connect_rate = 0.0
+		# for memory profiling
+		self.act_byte = act_byte
 
 		# inverted bottleneck
 		if mid_channels > in_channels:
@@ -538,18 +541,25 @@ class MBInvertedResBlock(BasicUnit):
 
 	def forward(self, x):
 		res = x
-
+		peak_memory = 0.0
+		
 		if self.inverted_bottleneck is not None:
+			x_orig = x
 			x = self.inverted_bottleneck(x)
+			peak_memory = max(peak_memory, torch.Tensor([x_orig[0].numel()*self.act_byte + x.numel()*self.act_byte // self.groups]))
 			if self.has_shuffle and self.groups > 1:
 				x = channel_shuffle(x, self.groups)
 
+		x_orig = x
 		x = self.depth_conv(x)
+		peak_memory = max(peak_memory, torch.Tensor([x_orig[0].numel()*self.act_byte + x.numel()*self.act_byte // self.mid_channels]))
 		if self.squeeze_excite is not None:
 			x_se = F.adaptive_avg_pool2d(x, 1)
 			x = x * torch.sigmoid(self.squeeze_excite(x_se))
-
+		
+		x_orig = x
 		x = self.point_linear(x)
+		peak_memory = max(peak_memory, torch.Tensor([x_orig[0].numel()*self.act_byte + x.numel()*self.act_byte // self.groups]))
 		if self.has_shuffle and self.groups > 1:
 			x = channel_shuffle(x, self.groups)
 
@@ -557,7 +567,7 @@ class MBInvertedResBlock(BasicUnit):
 			if self.drop_connect_rate > 0.0:
 				x = drop_connect(x, self.training, self.drop_connect_rate)
 			x += res
-
+		print(peak_memory[0].item()/(1048576*8))
 		return x
 
 	@property

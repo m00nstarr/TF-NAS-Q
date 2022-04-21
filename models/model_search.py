@@ -46,8 +46,13 @@ class MixedOP(nn.Module):
 		self.m_ops = nn.ModuleList()
 
 		# for quantization
-		self.activation_quantizer = AsymmetricQuantizer(
+		self.activation_quantizer_8b = AsymmetricQuantizer(
             bits_precision=8,
+            range_tracker=AveragedRangeTracker((1, 1, 1, 1))
+        )
+
+		self.activation_quantizer_4b = AsymmetricQuantizer(
+            bits_precision=4,
             range_tracker=AveragedRangeTracker((1, 1, 1, 1))
         )
 
@@ -112,7 +117,7 @@ class MixedOP(nn.Module):
 
 			# op(x) -> quantize
 			out = sum(w*op(x) for w, op in zip(weights, self.m_ops))
-			out_q = sum(w*self.activation_quantizer(op(x)) for w, op in zip(weights, self.m_ops))
+			out_q = sum(w*self.activation_quantizer_8b(op(x)) for w, op in zip(weights, self.m_ops))
 			# out = sum(w*op(x) for w, op in zip(weights, self.m_ops))
 			
 			return out, out_q
@@ -416,7 +421,7 @@ class Network(nn.Module):
 
 		x, peak_mem = self.stage5(x, sampling, mode)
 		out_memory = max(out_memory, peak_mem)
-		print(out_memory)
+
 		x = self.feature_mix_layer(x)
 		x = self.global_avg_pooling(x)
 		x = x.view(x.size(0), -1)
