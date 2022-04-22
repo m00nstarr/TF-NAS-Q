@@ -68,13 +68,12 @@ parser.add_argument('--target_memory', type=float, default = 0.5, help = 'the ta
 
 args = parser.parse_args()
 
-# args.save = os.path.join(args.save, 'search-{}-{}'.format(time.strftime("%Y%m%d-%H%M%S"), args.note))
+args.save = os.path.join(args.save, 'search-{}-{}'.format(time.strftime("%Y%m%d-%H%M%S"), args.note))
 #args.save = os.path.join(args.save,'search-20220413-162213-'+args.note)
 #args.save = os.path.join(args.save,'search-20220414-141341-'+args.note)
 #args.save = os.path.join(args.save,'search-20220418-111514-'+args.note)
-args.save = os.path.join(args.save,'search-20220421-175025-1-'+args.note)
-
-# create_exp_dir(args.save, scripts_to_save=None)
+# args.save = os.path.join(args.save,'search-20220421-175025-1-'+args.note)
+create_exp_dir(args.save, scripts_to_save=None)
 
 log_format = '%(asctime)s %(message)s'
 logging.basicConfig(stream=sys.stdout, level=logging.INFO,
@@ -170,7 +169,7 @@ def main():
 	val_queue = torch.utils.data.DataLoader(val_set, batch_size=args.batch_size,
                                  shuffle=False, pin_memory=True, num_workers=args.workers)
 
-	for epoch in range(10,args.epochs):
+	for epoch in range(0,args.epochs):
 		
 		mc_num_dddict = get_mc_num_dddict(mc_mask_dddict)
 		model = Network(args.num_classes, mc_num_dddict)
@@ -430,7 +429,7 @@ def validate(val_queue, model, criterion):
 		x = x.cuda(non_blocking=True)
 		target = target.cuda(non_blocking=True)
 		with torch.no_grad():
-			logits, _, _, _ = model(x, sampling=True, mode='gumbel')
+			logits, _, _ = model(x, sampling=True, mode='gumbel')
 			loss = criterion(logits, target)
 		# reset switches of log_alphas
 		model.module.reset_switches()
