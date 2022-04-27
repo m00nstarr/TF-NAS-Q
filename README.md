@@ -1,3 +1,10 @@
+## 실행방법
+
+TF-NAS-Q/cmd/cmd.txt 에 CIFAR-10 용 cmd가 맨 아래에 있습니다. 복사해서 TF-NAS-Q 디렉토리에서 실행하면 됩니다.
+
+ex) **moon@eclgpu3:~/tinyML/TF-NAS-Q$**  CUDA_VISIBLE_DEVICES=1 python -W ignore -u train_search.py --img_root "/home/dy/tiny-imagenet-200" --train_list "/home/dy/tiny-imagenet-200/tinyImageNet-100-trainlist.txt" --val_list "/home/dy/tiny-imagenet-200/tinyImageNet-100-vallist.txt" --lookup_path "./latency_pkl/latency_gpu.pkl" --save "./checkpoints" --print_freq 100 --workers 4 --epochs 90 --batch_size 32 --w_lr 0.025 --w_mom 0.9 --w_wd 1e-5 --a_lr 0.01 --a_wd 5e-4 --grad_clip 5.0 --T 5.0 --T_decay 0.96 --num_classes 10 --lambda_lat 0.1 --target_lat 15.0 --target_memory 0.5 --note "TF-NAS-lam0.1-lat15.0-gpu"
+
+
 # TF-NAS
 
 Official Pytorch code of paper [TF-NAS: Rethinking Three Search Freedoms of Latency-Constrained Differentiable Neural Architecture Search](https://arxiv.org/abs/2008.05314) in ECCV2020.
