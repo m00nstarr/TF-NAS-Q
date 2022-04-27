@@ -70,12 +70,12 @@ parser.add_argument('--target_memory', type=float, default = 0.5, help = 'the ta
 
 args = parser.parse_args()
 
-#args.save = os.path.join(args.save, 'search-{}-{}'.format(time.strftime("%Y%m%d-%H%M%S"), args.note))
+args.save = os.path.join(args.save, 'search-{}-{}'.format(time.strftime("%Y%m%d-%H%M%S"), args.note))
 #args.save = os.path.join(args.save,'search-20220413-162213-'+args.note)
 #args.save = os.path.join(args.save,'search-20220414-141341-'+args.note)
 #args.save = os.path.join(args.save,'search-20220418-111514-'+args.note)
-args.save = os.path.join(args.save,'search-20220421-163232-'+args.note)
-#create_exp_dir(args.save, scripts_to_save=None)
+#args.save = os.path.join(args.save,'search-20220421-163232-'+args.note)
+create_exp_dir(args.save, scripts_to_save=None)
 
 log_format = '%(asctime)s %(message)s'
 logging.basicConfig(stream=sys.stdout, level=logging.INFO,
