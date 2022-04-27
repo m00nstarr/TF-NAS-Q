@@ -8,6 +8,16 @@ from .quantizers import AsymmetricQuantizer
 from .range_trackers import *
 from tools.utils import count_activation_size
 
+# import logging
+
+# save = '/home/moon/tinyML/TF-NAS-Q/checkpoints/search-20220421-163232-TF-NAS-lam0.1-lat15.0-gpu'
+# log_format = '%(asctime)s %(message)s'
+# logging.basicConfig(stream=sys.stdout, level=logging.INFO,
+# 	format=log_format, datefmt='%m/%d %I:%M:%S %p')
+# fh = logging.FileHandler(os.path.join(save, 'log.txt'))
+# fh.setFormatter(logging.Formatter(log_format))
+# logging.getLogger().addHandler(fh)
+
 PRIMITIVES = [
 	'MBI_k3_e3',
 	'MBI_k3_e6',
@@ -48,7 +58,7 @@ class MixedOP(nn.Module):
 		self.stage_num = stage_num
 
 		# for quantization
-		self.activation_quantizer_8b = AsymmetricQuantizer(
+		self.activation_quantizer = AsymmetricQuantizer(
             bits_precision=8,
             range_tracker=AveragedRangeTracker((1, 1, 1, 1))
         )
@@ -115,19 +125,23 @@ class MixedOP(nn.Module):
 			# if isinstance(op, MBInvertedResBlock):
 			# 	self.peakmemory_list[self.stage_num-1] = max(self.peakmemory_list[self.stage_num-1], op.get_peakmemory())
 			# 	print('!!!!peakmemory!!!', self.peakmemory_list[self.stage_num-1])
-			return op(x), 0
+			return op(x), 0, 0
 		else:
 			weights = F.gumbel_softmax(self.log_alphas, self.T, hard=False)
-			# lats = self.get_lookup_latency(x.size(-1))
 			
+			#4개의 oepration 별 peak memory 체크
+			peak_mem = 0.
 			for mm in self.m_ops:
-				if isinstance(mm, MBInvertedResBlock):
-					self.peakmemory_list[self.stage_num-1] = max(self.peakmemory_list[self.stage_num-1], op.get_peakmemory())
+				act_mem = mm.get_activation_memory()
+				if(len(act_mem) > 0):
+					peak_mem = max(act_mem)
+
 			out = sum(w*op(x) for w, op in zip(weights, self.m_ops))
-			out_q = sum(w*self.activation_quantizer_8b(op(x)) for w, op in zip(weights, self.m_ops))
-			# out = sum(w*op(x) for w, op in zip(weights, self.m_ops))
-			
-			return out, out_q
+			out_q = sum(w * 1 for w, op in zip(weights, self.m_ops))
+
+			out_q = sum(w*self.activation_quantizer(op(x)) for w, op in zip(weights, self.m_ops))
+
+			return out, out_q, peak_mem
 			
 
 	def _initialize_log_alphas(self):
@@ -181,171 +195,115 @@ class MixedStage(nn.Module):
 		res_q_list = [x, ]
 
 		activation_list = [0.,]
-		activation_q_list = [0.,]
+		#activation_q_list = [0.,]
 
 		# stage5
 		if self.stage_type == 0:
-			out1, out1_q = self.block1(x, sampling, mode)
+			#logging.info("block 1 ")
+			out1, out1_q, peak_mem = self.block1(x, sampling, mode)
 			res_list.append(out1)
 			res_q_list.append(out1_q)
+			activation_list.append(peak_mem)
 			
-			input_shape = list(x.shape)
-			input_shape[0] = 1
-			input_shape = tuple(input_shape)
-			
-			if sampling == False:
-				activation_memory = count_activation_size(self.block1, input_size = input_shape, require_backward= False)[0]
-				activation_q_memory = count_activation_size(self.block1, input_size = input_shape, require_backward = False, activation_bits=8)[0]
-				activation_list.append(activation_memory)
-				activation_q_list.append(activation_q_memory)
 
-		# stage1
+
+		# stage 1
 		elif self.stage_type == 1:
-			out1, out1_q = self.block1(x, sampling, mode)
+			#logging.info("block 1 ")
+			out1, out1_q, peak_mem = self.block1(x, sampling, mode)
 			res_list.append(out1)
 			res_q_list.append(out1_q)
-			input_shape = list(x.shape)
-			input_shape[0] = 1
-			input_shape = tuple(input_shape)
+			activation_list.append(peak_mem)
 
-			if sampling == False:
-				activation_memory = count_activation_size(self.block1, input_size = input_shape, require_backward= False)[0]
-				activation_q_memory = count_activation_size(self.block1, input_size = input_shape, require_backward = False, activation_bits=8)[0]
-				activation_list.append(activation_memory)
-				activation_q_list.append(activation_q_memory)
 
-			out2, out2_q = self.block2(out1, sampling, mode)
+			#logging.info("block 2 ")
+			out2, out2_q, peak_mem= self.block2(out1, sampling, mode)
 			res_list.append(out2)
 			res_q_list.append(out2_q)
-			input_shape = list(out1.shape)
-			input_shape[0] = 1
-			input_shape = tuple(input_shape)
-
-			if sampling == False:
-				activation_memory = count_activation_size(self.block2, input_size = input_shape, require_backward= False)[0]
-				activation_q_memory = count_activation_size(self.block2, input_size = input_shape, require_backward = False, activation_bits=8)[0]
-				activation_list.append(activation_memory)
-				activation_q_list.append(activation_q_memory)
+			activation_list.append(peak_mem)
 
 		# stage2
 		elif self.stage_type == 2:
-			out1, out1_q = self.block1(x, sampling, mode)
+			#logging.info("block 1 ")
+			out1, out1_q, peak_mem= self.block1(x, sampling, mode)
 			res_list.append(out1)
 			res_q_list.append(out1_q)
-			input_shape = list(x.shape)
-			input_shape[0] = 1
-			input_shape = tuple(input_shape)
+			activation_list.append(peak_mem)
 
-			if sampling == False:
-				activation_memory = count_activation_size(self.block1, input_size = input_shape, require_backward= False)[0]
-				activation_q_memory = count_activation_size(self.block1, input_size = input_shape, require_backward = False, activation_bits=8)[0]
-				activation_list.append(activation_memory)
-				activation_q_list.append(activation_q_memory)
 
-			out2, out2_q = self.block2(out1, sampling, mode)
+			#logging.info("block 2 ")
+			out2, out2_q, peak_mem= self.block2(out1, sampling, mode)
 			res_list.append(out2)
 			res_q_list.append(out2_q)
-			input_shape = list(out1.shape)
-			input_shape[0] = 1
-			input_shape = tuple(input_shape)
+			activation_list.append(peak_mem)
 
-			if sampling == False:
-				activation_memory = count_activation_size(self.block2, input_size = input_shape, require_backward= False)[0]
-				activation_q_memory = count_activation_size(self.block2, input_size = input_shape, require_backward = False, activation_bits=8)[0]
-				activation_list.append(activation_memory)
-				activation_q_list.append(activation_q_memory)
-
-			out3, out3_q = self.block3(out2, sampling, mode)
+			#logging.info("block 3 ")
+			out3, out3_q, peak_mem = self.block3(out2, sampling, mode)
 			res_list.append(out3)
 			res_q_list.append(out3_q)
-			input_shape = list(out2.shape)
-			input_shape[0] = 1
-			input_shape = tuple(input_shape)
-
-			if sampling == False:
-				activation_memory = count_activation_size(self.block3, input_size = input_shape, require_backward= False)[0]
-				activation_q_memory = count_activation_size(self.block3, input_size = input_shape, require_backward = False, activation_bits=8)[0]
-				activation_list.append(activation_memory)
-				activation_q_list.append(activation_q_memory)
+			activation_list.append(peak_mem)
 
 		# stage3, stage4
 		elif self.stage_type == 3:
-			out1, out1_q = self.block1(x, sampling, mode)
+			#logging.info("block 1 ")
+			out1, out1_q, peak_mem = self.block1(x, sampling, mode)
 			res_list.append(out1)
 			res_q_list.append(out1_q)
-			input_shape = list(x.shape)
-			input_shape[0] = 1
-			input_shape = tuple(input_shape)
+			activation_list.append(peak_mem)
 
-			if sampling == False:
-				activation_memory = count_activation_size(self.block1, input_size = input_shape, require_backward= False)[0]
-				activation_q_memory = count_activation_size(self.block1, input_size = input_shape, require_backward = False, activation_bits=8)[0]
-				activation_list.append(activation_memory)
-				activation_q_list.append(activation_q_memory)
-
-			out2, out2_q = self.block2(out1, sampling, mode)
+			#logging.info("block 2 ")
+			out2, out2_q, peak_mem= self.block2(out1, sampling, mode)
 			res_list.append(out2)
 			res_q_list.append(out2_q)
-			input_shape = list(out1.shape)
-			input_shape[0] = 1
-			input_shape = tuple(input_shape)
+			activation_list.append(peak_mem)
 
-			if sampling == False:
-				activation_memory = count_activation_size(self.block2, input_size = input_shape, require_backward= False)[0]
-				activation_q_memory = count_activation_size(self.block2, input_size = input_shape, require_backward = False, activation_bits=8)[0]
-				activation_list.append(activation_memory)
-				activation_q_list.append(activation_q_memory)
-
-			out3, out3_q = self.block3(out2, sampling, mode)
+			#logging.info("block 3 ")
+			out3, out3_q, peak_mem= self.block3(out2, sampling, mode)
 			res_list.append(out3)
 			res_q_list.append(out3_q)
-			input_shape = list(out2.shape)
-			input_shape[0] = 1
-			input_shape = tuple(input_shape)
+			activation_list.append(peak_mem)
 
-			if sampling == False:
-				activation_memory = count_activation_size(self.block3, input_size = input_shape, require_backward= False)[0]
-				activation_q_memory = count_activation_size(self.block3, input_size = input_shape, require_backward = False, activation_bits=8)[0]
-				activation_list.append(activation_memory)
-				activation_q_list.append(activation_q_memory)
-
-			out4, out4_q = self.block4(out3, sampling, mode)
+			#logging.info("block 4 ")
+			out4, out4_q, peak_mem= self.block4(out3, sampling, mode)
 			res_list.append(out4)
 			res_q_list.append(out4_q)
-			input_shape = list(out3.shape)
-			input_shape[0] = 1
-			input_shape = tuple(input_shape)
-
-			if sampling == False:
-				activation_memory = count_activation_size(self.block4, input_size = input_shape, require_backward= False)[0]
-				activation_q_memory = count_activation_size(self.block4, input_size = input_shape, require_backward = False, activation_bits=8)[0]
-				activation_list.append(activation_memory)
-				activation_q_list.append(activation_q_memory)
+			activation_list.append(peak_mem)
 
 		else:
 			raise ValueError
 
 		weights = F.softmax(self.betas, dim=-1)
 		g_weights = F.softmax(self.gammas, dim = -1)
+		d_weights = 0
 
-		# 32 로 계산된 out 의 비율을 gamma 1 만큼 반영하고, 8비트로 계산된 out의 값을 gamma2 만큼 반영해서
-		# out 값을 평균낸다고.
-
+		
 		out = sum(w*res for w, res in zip(weights, res_list[self.start_res:]))
 		out_q = sum(w*res for w, res in zip(weights, res_q_list[self.start_res:]))
 
 		out_list = []
 		out_list.append(out)
 		out_list.append(out_q)
+		# quantization이 accuracy에 미치는 영향 체크하기 위해 32비트 output과 8비트 output의 결과를
+		# gamma parameters 를 이용하여 최종 output으로 하였음.
+		 
 		out = sum(g_w * res for g_w, res in zip(g_weights, out_list))
 
-		memory_list = []
-		memory_list.append(max(activation_list))
-		memory_list.append(max(activation_q_list))
+		if sampling == False:
+			#print(activation_list)
+			activation_q_list = [a/4.0 for a in activation_list]
+			#print(activation_q_list)
+			#32 비트 연산으로의 peak memory를 gamma1 만큼 반영,
+			#8 비트 연산으로의 peak memory를 gamma2 만큼 반영
+			memory_list = []
+			memory_list.append(max(activation_list))
+			memory_list.append(max(activation_q_list))
+		
+			peak_memory = sum(g_w * mem for g_w, mem in zip(g_weights, memory_list))
 
-		peak_memory = sum(g_w * mem for g_w, mem in zip(g_weights, memory_list))
-
-		return out, peak_memory
+			print("stage_type :", self.stage_type, ", gamma_rate(n.q , q):", g_weights.tolist() , "weighted peak_mem:", peak_memory.item())
+			return out, peak_memory
+		else:
+			return out, 0
 
 	def _initialize_betas(self):
 		betas = torch.zeros((self.num_res))
@@ -426,22 +384,35 @@ class Network(nn.Module):
 
 		out_memory = -1.
 
+		#logging.info("stage1 : ")
 		x, peak_mem = self.stage1(x, sampling, mode)
+		#print(peak_mem)
 		out_memory = max(out_memory, peak_mem)
 
+		#logging.info("stage2 : ")
 		x, peak_mem= self.stage2(x, sampling, mode)
+		#print(peak_mem)
 		out_memory = max(out_memory, peak_mem)
 
+
+		#logging.info("stage3 : ")
 		x, peak_mem = self.stage3(x, sampling, mode)
+		#print(peak_mem)
 		out_memory = max(out_memory, peak_mem)
 
+
+		#logging.info("stage4 : ")
 		x, peak_mem = self.stage4(x, sampling, mode)
+		#print(peak_mem)
 		out_memory = max(out_memory, peak_mem)
 
+
+		#logging.info("stage5 : ")
 		x, peak_mem = self.stage5(x, sampling, mode)
+		print()
 		out_memory = max(out_memory, peak_mem)
 
-		print(self.peakmemory_list)
+		#print(self.peakmemory_list)
 
 		x = self.feature_mix_layer(x)
 		x = self.global_avg_pooling(x)

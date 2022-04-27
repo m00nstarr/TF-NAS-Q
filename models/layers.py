@@ -3,6 +3,17 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from collections import OrderedDict
+import logging
+import os
+#save = './checkpoints/search-20220421-163232-TF-NAS-lam0.1-lat15.0-gpu'
+
+# log_format = '%(asctime)s %(message)s'
+# logging.basicConfig(stream=sys.stdout, level=logging.INFO,
+# 	format=log_format, datefmt='%m/%d %I:%M:%S %p')
+# fh = logging.FileHandler(os.path.join(save, 'log.txt'))
+# fh.setFormatter(logging.Formatter(log_format))
+# logging.getLogger().addHandler(fh)
+
 
 sys.path.append('..')
 from tools.utils import *
@@ -464,6 +475,7 @@ class MBInvertedResBlock(BasicUnit):
 		# for memory profiling
 		self.act_byte = act_byte
 		self.peakmemory = 0.0
+		self.activation_memory_list = []
 
 		# inverted bottleneck
 		if mid_channels > in_channels:
@@ -541,17 +553,21 @@ class MBInvertedResBlock(BasicUnit):
 		# residual flag
 		self.has_residual = (in_channels == out_channels) and (stride == 1)
 
-	def get_peakmemory(self):
-		return self.peakmemory
+	def get_activation_memory(self):
+		return self.activation_memory_list
 
 	def forward(self, x):
 		res = x
 		# peak_memory_tensor = 0.0
 		peak_memory = 0.0
+		self.activation_memory_list.clear()
+		#peak memory list 프린트
+		
 		if self.inverted_bottleneck is not None:
 			x_orig = x
 			x = self.inverted_bottleneck(x)
 			peak_memory_tensor = torch.Tensor([x_orig[0].numel()*self.act_byte + x.numel()*self.act_byte // self.groups])
+			self.activation_memory_list.append(peak_memory_tensor[0].item()/(1048576*8))
 			peak_memory = max(peak_memory, peak_memory_tensor[0].item()/(1048576*8))
 			if self.has_shuffle and self.groups > 1:
 				x = channel_shuffle(x, self.groups)
@@ -559,6 +575,7 @@ class MBInvertedResBlock(BasicUnit):
 		x_orig = x
 		x = self.depth_conv(x)
 		peak_memory_tensor = torch.Tensor([x_orig[0].numel()*self.act_byte + x.numel()*self.act_byte // self.mid_channels])
+		self.activation_memory_list.append(peak_memory_tensor[0].item()/(1048576*8))
 		peak_memory = max(peak_memory, peak_memory_tensor[0].item()/(1048576*8))
 		if self.squeeze_excite is not None:
 			x_se = F.adaptive_avg_pool2d(x, 1)
@@ -567,6 +584,7 @@ class MBInvertedResBlock(BasicUnit):
 		x_orig = x
 		x = self.point_linear(x)
 		peak_memory_tensor = torch.Tensor([x_orig[0].numel()*self.act_byte + x.numel()*self.act_byte // self.groups])
+		self.activation_memory_list.append(peak_memory_tensor[0].item()/(1048576*8))
 		peak_memory = max(peak_memory, peak_memory_tensor[0].item()/(1048576*8))
 		if self.has_shuffle and self.groups > 1:
 			x = channel_shuffle(x, self.groups)
@@ -577,7 +595,7 @@ class MBInvertedResBlock(BasicUnit):
 			x += res
 		
 		self.peakmemory = peak_memory
-		print(peak_memory)
+
 		return x
 
 	@property
