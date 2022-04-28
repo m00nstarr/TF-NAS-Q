@@ -70,12 +70,12 @@ parser.add_argument('--target_memory', type=float, default = 0.5, help = 'the ta
 
 args = parser.parse_args()
 
-args.save = os.path.join(args.save, 'search-{}-{}'.format(time.strftime("%Y%m%d-%H%M%S"), args.note))
+#args.save = os.path.join(args.save, 'search-{}-{}'.format(time.strftime("%Y%m%d-%H%M%S"), args.note))
 #args.save = os.path.join(args.save,'search-20220413-162213-'+args.note)
 #args.save = os.path.join(args.save,'search-20220414-141341-'+args.note)
 #args.save = os.path.join(args.save,'search-20220418-111514-'+args.note)
-#args.save = os.path.join(args.save,'search-20220421-163232-'+args.note)
-create_exp_dir(args.save, scripts_to_save=None)
+args.save = os.path.join(args.save,'search-20220428-175931-'+args.note)
+#create_exp_dir(args.save, scripts_to_save=None)
 
 log_format = '%(asctime)s %(message)s'
 logging.basicConfig(stream=sys.stdout, level=logging.INFO,
@@ -84,103 +84,6 @@ fh = logging.FileHandler(os.path.join(args.save, 'log.txt'))
 fh.setFormatter(logging.Formatter(log_format))
 logging.getLogger().addHandler(fh)
 
-
-activation_memory_dict = OrderedDict([
-		('stage1', OrderedDict([
-				('block1', OrderedDict([
-						(0, 1.515625),
-						(1, 3.015625),
-						(2, 1.515625),
-						(3, 3.015625),
-					])),
-				('block2', OrderedDict([
-						(0, 0.568359),
-						(1, 1.130859),
-						(2, 0.568359),
-						(3, 1.130859),
-					])),
-			])),
-		('stage2', OrderedDict([
-				('block1', OrderedDict([
-						(0, 0.568359),
-						(1, 1.130859),
-						(2, 0.568359),
-						(3, 1.130859),
-					])),
-				('block2', OrderedDict([
-						(0, 0.236816),
-						(1, 0.471191),
-						(2, 0.236816),
-						(3, 0.471191),
-					])),
-				('block3', OrderedDict([
-						(0, 0.236816),
-						(1, 0.471191),
-						(2, 0.236816),
-						(3, 0.471191),
-					])),
-			])),
-		('stage3', OrderedDict([
-				('block1', OrderedDict([
-						(0, 0.236816),
-						(1, 0.471191),
-						(2, 0.236816),
-						(3, 0.471191),
-					])),
-				('block2', OrderedDict([
-						(0, 0.118408),
-						(1, 0.235596),
-						(2, 0.118408),
-						(3, 0.235596),
-					])),
-				('block3', OrderedDict([
-						(0, 0.118408),
-						(1, 0.235596),
-						(2, 0.118408),
-						(3, 0.235596),
-					])),
-				('block4', OrderedDict([
-						(0, 0.118408),
-						(1, 0.235596),
-						(2, 0.118408),
-						(3, 0.235596),
-					])),
-			])),
-		('stage4', OrderedDict([
-				('block1', OrderedDict([
-						(0, 0.118408),
-						(1, 0.235596),
-						(2, 0.118408),
-						(3, 0.235596),
-					])),
-				('block2', OrderedDict([
-						(0, 0.165771),
-						(1, 0.329834),
-						(2, 0.165771),
-						(3, 0.329834),
-					])),
-				('block3', OrderedDict([
-						(0, 0.165771),
-						(1, 0.329834),
-						(2, 0.165771),
-						(3, 0.329834),
-					])),
-				('block4', OrderedDict([
-						(0, 0.165771),
-						(1, 0.329834),
-						(2, 0.165771),
-						(3, 0.329834),
-					])),
-			])),
-		('stage5', OrderedDict([
-				('block1', OrderedDict([
-						(0, 0.165771),
-						(1, 0.329834),
-						(2, 0.165771),
-						(3, 0.329834),
-					])),
-			])),
-	])
 
 def main():
 	if not torch.cuda.is_available():
@@ -195,7 +98,7 @@ def main():
 
 	
 	mc_maxnum_dddict = get_mc_num_dddict(mc_mask_dddict, is_max=True)
-	model = Network(args.num_classes, mc_maxnum_dddict)
+	model = Network(args.num_classes, mc_maxnum_dddict, target_mem = args.target_memory)
 	model = torch.nn.DataParallel(model).cuda()
 	model.module.set_temperature(args.T)
 	logging.info("param size = %fMB", count_parameters_in_MB(model))
@@ -272,7 +175,7 @@ def main():
 	for epoch in range(10,args.epochs):
 		
 		mc_num_dddict = get_mc_num_dddict(mc_mask_dddict)
-		model = Network(args.num_classes, mc_num_dddict)
+		model = Network(args.num_classes, mc_num_dddict, target_mem = args.target_memory)
 		model = torch.nn.DataParallel(model).cuda()
 		model.module.set_temperature(args.T)
 
@@ -347,11 +250,16 @@ def main():
 			param = param.numpy()
 			logging.info(' '.join(['{:.6f}'.format(p) for p in param]))
 		
+		#gamma for quantization 
+		stage =[1,1,2,2,2,3,3,3,3,4,4,4,4,5]
+		block= [1,2,1,2,3,1,2,3,4,1,2,3,4,1]
+		idx = 0
 		for param in model.module.gammas_parameters():
-			param = F.softmax(param.detach().cpu(), dim=-1)
+			param = F.softmax(param.detach().cpu())
 			param = param.numpy()
-			logging.info(' '.join(['{:.6f}'.format(p) for p in param]))
-		
+			logging.info('stage: ' + str(stage[idx])+ ' block: ' + str(block[idx])+ ' /' +' '.join(['{:.6f}'.format(p) for p in param]))
+			idx += 1
+
 		logging.info('Train_acc %f', train_acc)
 		epoch_duration = time.time() - epoch_start
 		logging.info('Epoch time: %ds', epoch_duration)
@@ -486,13 +394,13 @@ def train_w_arch(train_queue, val_queue, model, criterion, optimizer_w, optimize
 			for param in model.module.arch_parameters():
 				param.requires_grad = True
 
-			logits_a, peak_memory = model(x_a, sampling=False)
+			logits_a, loss_peak_memory = model(x_a, sampling=False)
 			loss_a = criterion(logits_a, target_a)
 			
 			#quantization loss 함수 정의 후 추가하였음
 			#peak memory 와 taget.memory (0.5MB)의 차이를 loss_q값 정의 
 			#
-			loss_q = abs(peak_memory / args.target_memory - 1.) * 0.4
+			loss_q = loss_peak_memory
 
 			loss = loss_a + loss_q
 
