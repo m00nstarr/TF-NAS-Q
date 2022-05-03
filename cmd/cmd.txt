@@ -162,7 +162,7 @@ CUDA_VISIBLE_DEVICES=1 python -W ignore -u train_search.py \
 	--w_lr 0.025 \
 	--w_mom 0.9 \
 	--w_wd 1e-5 \
-	--a_lr 0.05 \
+	--a_lr 0.01 \
 	--a_wd 5e-4 \
 	--grad_clip 5.0 \
 	--T 5.0 \
@@ -171,7 +171,8 @@ CUDA_VISIBLE_DEVICES=1 python -W ignore -u train_search.py \
 	--lambda_lat 0.1 \
 	--target_lat 15.0 \
 	--target_memory 0.5 \
-	--note "TF-NAS-lam0.1-lat15.0-gpu"
+	--note "TF-NAS-lam0.1-lat15.0-gpu" \
+	--memory_lookup_path "./latency_pkl/peak_memory_cpu.pkl"
 
 
 CUDA_VISIBLE_DEVICES=0 python -W ignore -u train_search.py \

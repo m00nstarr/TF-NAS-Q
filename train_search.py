@@ -66,7 +66,7 @@ parser.add_argument('--note', type=str, default='try', help='note for this run')
 parser.add_argument('--lambda_lat', type=float, default=0.1, help='trade off for latency')
 parser.add_argument('--target_lat', type=float, default=15.0, help='the target latency')
 parser.add_argument('--target_memory', type=float, default = 0.5, help = 'the target activation memory')
-
+parser.add_argument('--memory_lookup_path', type=str, default = "./latency_pkl/peak_memory_cpu.pkl", help = 'path of memory lookup table')
 
 args = parser.parse_args()
 
@@ -74,7 +74,7 @@ args = parser.parse_args()
 #args.save = os.path.join(args.save,'search-20220413-162213-'+args.note)
 #args.save = os.path.join(args.save,'search-20220414-141341-'+args.note)
 #args.save = os.path.join(args.save,'search-20220418-111514-'+args.note)
-args.save = os.path.join(args.save,'search-20220428-175931-'+args.note)
+args.save = os.path.join(args.save,'search-20220502-194440-'+args.note)
 #create_exp_dir(args.save, scripts_to_save=None)
 
 log_format = '%(asctime)s %(message)s'
@@ -97,6 +97,9 @@ def main():
 	logging.info("args = %s", args)
 
 	
+	with open(args.memory_lookup_path, 'rb') as f:
+		mem_lookup = pickle.load(f)
+
 	mc_maxnum_dddict = get_mc_num_dddict(mc_mask_dddict, is_max=True)
 	model = Network(args.num_classes, mc_maxnum_dddict, target_mem = args.target_memory)
 	model = torch.nn.DataParallel(model).cuda()
@@ -131,8 +134,8 @@ def main():
 
 	normalize = transforms.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD)
 	train_transform = transforms.Compose([
-			#transforms.RandomResizedCrop(224),
-			transforms.RandomHorizontalFlip(),
+			# transforms.RandomResizedCrop(32),
+			# transforms.RandomHorizontalFlip(),
 			transforms.ColorJitter(
 				brightness=0.4,
 				contrast=0.4,
@@ -143,8 +146,8 @@ def main():
 		])
 
 	val_transform = transforms.Compose([
-			#transforms.Resize(256),
-			# transforms.CenterCrop(224),
+			# transforms.Resize(256),
+			# transforms.CenterCrop(32),
 			transforms.ToTensor(),
 			normalize,
 		])
@@ -172,7 +175,7 @@ def main():
 	val_queue = torch.utils.data.DataLoader(val_set, batch_size=args.batch_size,
                                  shuffle=False, pin_memory=True, num_workers=args.workers)
 
-	for epoch in range(10,args.epochs):
+	for epoch in range(9,args.epochs):
 		
 		mc_num_dddict = get_mc_num_dddict(mc_mask_dddict)
 		model = Network(args.num_classes, mc_num_dddict, target_mem = args.target_memory)
@@ -200,19 +203,6 @@ def main():
 					pw_key = 'module.{}.{}.m_ops.{}.point_linear.conv.weight'.format(stage, block, op_idx)
 					exec(pw + ' = torch.index_select(state_dict[pw_key], 1, index).data')
 
-					if op_idx >= 4:
-						se_cr_w = 'model.module.{}.{}.m_ops[{}].squeeze_excite.conv_reduce.weight.data'.format(stage, block, op_idx)
-						se_cr_w_key = 'module.{}.{}.m_ops.{}.squeeze_excite.conv_reduce.weight'.format(stage, block, op_idx)
-						exec(se_cr_w + ' = torch.index_select(state_dict[se_cr_w_key], 1, index).data')
-						se_cr_b = 'model.module.{}.{}.m_ops[{}].squeeze_excite.conv_reduce.bias.data'.format(stage, block, op_idx)
-						se_cr_b_key = 'module.{}.{}.m_ops.{}.squeeze_excite.conv_reduce.bias'.format(stage, block, op_idx)
-						exec(se_cr_b + ' = state_dict[se_cr_b_key].data')
-						se_ce_w = 'model.module.{}.{}.m_ops[{}].squeeze_excite.conv_expand.weight.data'.format(stage, block, op_idx)
-						se_ce_w_key = 'module.{}.{}.m_ops.{}.squeeze_excite.conv_expand.weight'.format(stage, block, op_idx)
-						exec(se_ce_w + ' = torch.index_select(state_dict[se_ce_w_key], 0, index).data')
-						se_ce_b = 'model.module.{}.{}.m_ops[{}].squeeze_excite.conv_expand.bias.data'.format(stage, block, op_idx)
-						se_ce_b_key = 'module.{}.{}.m_ops.{}.squeeze_excite.conv_expand.bias'.format(stage, block, op_idx)
-						exec(se_ce_b + ' = torch.index_select(state_dict[se_ce_b_key], 0, index).data')
 		del index
 
 		lr = lr_list[epoch]
@@ -233,7 +223,7 @@ def main():
 		
 		# training
 		epoch_start = time.time()
-		if epoch < 10:
+		if epoch < 0:
 			train_acc = train_wo_arch(train_queue, model, criterion, optimizer_w)
 		else:
 			train_acc = train_w_arch(train_queue, val_queue, model, criterion, optimizer_w, optimizer_a)
@@ -285,15 +275,6 @@ def main():
 					state_dict[dw_key].data[index,:,:,:] = state_dict_from_model[dw_key]
 					pw_key = 'module.{}.{}.m_ops.{}.point_linear.conv.weight'.format(stage, block, op_idx)
 					state_dict[pw_key].data[:,index,:,:] = state_dict_from_model[pw_key]
-					if op_idx >= 4:
-						se_cr_w_key = 'module.{}.{}.m_ops.{}.squeeze_excite.conv_reduce.weight'.format(stage, block, op_idx)
-						state_dict[se_cr_w_key].data[:,index,:,:] = state_dict_from_model[se_cr_w_key]
-						se_cr_b_key = 'module.{}.{}.m_ops.{}.squeeze_excite.conv_reduce.bias'.format(stage, block, op_idx)
-						state_dict[se_cr_b_key].data[:] = state_dict_from_model[se_cr_b_key]
-						se_ce_w_key = 'module.{}.{}.m_ops.{}.squeeze_excite.conv_expand.weight'.format(stage, block, op_idx)
-						state_dict[se_ce_w_key].data[index,:,:,:] = state_dict_from_model[se_ce_w_key]
-						se_ce_b_key = 'module.{}.{}.m_ops.{}.squeeze_excite.conv_expand.bias'.format(stage, block, op_idx)
-						state_dict[se_ce_b_key].data[index] = state_dict_from_model[se_ce_b_key]
 		del state_dict_from_model, index
 
 		# save model
@@ -398,7 +379,7 @@ def train_w_arch(train_queue, val_queue, model, criterion, optimizer_w, optimize
 			loss_a = criterion(logits_a, target_a)
 			
 			#quantization loss 함수 정의 후 추가하였음
-			#peak memory 와 taget.memory (0.5MB)의 차이를 loss_q값 정의 
+			#loss_q -> 모든 레이어 별 (peak memory와 target memory의 차이)의 총합
 			#
 			loss_q = loss_peak_memory
 
@@ -438,7 +419,7 @@ def validate(val_queue, model, criterion):
 		x = x.cuda(non_blocking=True)
 		target = target.cuda(non_blocking=True)
 		with torch.no_grad():
-			logits, _, _ = model(x, sampling=True, mode='gumbel')
+			logits, _ = model(x, sampling=True, mode='gumbel')
 			loss = criterion(logits, target)
 		# reset switches of log_alphas
 		model.module.reset_switches()
