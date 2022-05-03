@@ -136,15 +136,6 @@ class MixedOP(nn.Module):
 			weights = F.gumbel_softmax(self.log_alphas, self.T, hard=False)
 			g_weights = F.softmax(self.gammas, dim = -1)
 
-			#4개의 oepration 별 peak memory 체크
-			peak_mem = 0.
-			for mm in self.m_ops:
-				act_mem = mm.get_activation_memory()
-				if(len(act_mem) > 0):
-					peak_mem = max(act_mem)
-
-			mem_list = [peak_mem / 8, peak_mem / 4 , peak_mem / 2, peak_mem]
-			#print(mem_list)
 			out = sum(w*op(x) for w, op in zip(weights, self.m_ops))
 			out_4 = sum(w*self.activation_quantizer_4b(op(x)) for w, op in zip(weights, self.m_ops))
 			out_8 = sum(w*self.activation_quantizer_8b(op(x)) for w, op in zip(weights, self.m_ops))
@@ -160,10 +151,24 @@ class MixedOP(nn.Module):
 			out_ = sum(g_w * out for g_w , out in zip(g_weights, out_list))
 			
 			#peak_mem 또한 반영
-			peak_mem = sum(g_w * active_mem for g_w, active_mem in zip(g_weights, mem_list))
+			#4개의 oepration 별 peak memory 체크
+			peak_mem = []
+			for step,mm in enumerate(self.m_ops):
+				
+				act_mem = mm.get_activation_memory()
+				logging.info("%d", step)
+				print(act_mem)
+				peak_mem.append(max(act_mem))
+
+			#4개의 OP average peak memory
+			average_peak_mem = sum(w * op_peak_mem for w, op_peak_mem in zip(weights, peak_mem))
+
+			#quantized option added
+			peak_mem_list = [average_peak_mem / 8, average_peak_mem / 4, average_peak_mem / 2, average_peak_mem]
+			block_average_peak_mem = sum(g_w * active_mem for g_w, active_mem in zip(g_weights, peak_mem_list))
 			
-			peak_mem = abs(peak_mem - self.target_mem)
-			return out_, peak_mem
+			diff_peak_mem = abs(block_average_peak_mem - self.target_mem)
+			return out_, diff_peak_mem
 			
 
 	def _initialize_log_alphas(self):
@@ -221,42 +226,46 @@ class MixedStage(nn.Module):
 
 		# stage5
 		if self.stage_type == 0:
-			#logging.info("block 1 ")
+			# logging.info("stage5")
+			# logging.info("block 1 ")
 			out1, peak_mem = self.block1(x, sampling, mode)
 			res_list.append(out1)
 			activation_list.append(peak_mem)
 			
 		# stage 1
 		elif self.stage_type == 1:
-			#logging.info("block 1 ")
+			# logging.info("stage1")
+			# logging.info("block 1 ")
 			out1, peak_mem = self.block1(x, sampling, mode)
 			res_list.append(out1)
 			activation_list.append(peak_mem)
 
-			#logging.info("block 2 ")
+			# logging.info("block 2")
 			out2, peak_mem= self.block2(out1, sampling, mode)
 			res_list.append(out2)
 			activation_list.append(peak_mem)
 
 		# stage2
 		elif self.stage_type == 2:
-			#logging.info("block 1 ")
+			# logging.info("stage2")
+			# logging.info("block 1")
 			out1, peak_mem = self.block1(x, sampling, mode)
 			res_list.append(out1)
 			activation_list.append(peak_mem)
 
-			#logging.info("block 2 ")
+			# logging.info("block 2")
 			out2, peak_mem= self.block2(out1, sampling, mode)
 			res_list.append(out2)
 			activation_list.append(peak_mem)
 
-			#logging.info("block 3 ")
+			# logging.info("block 3")
 			out3, peak_mem = self.block3(out2, sampling, mode)
 			res_list.append(out3)
 			activation_list.append(peak_mem)
 
 		# stage3, stage4
 		elif self.stage_type == 3:
+			#logging.info("stage3 / 4")
 			#logging.info("block 1 ")
 			out1, peak_mem = self.block1(x, sampling, mode)
 			res_list.append(out1)

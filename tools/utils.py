@@ -14,6 +14,31 @@ from torchvision.models.mobilenetv2 import InvertedResidual
 INIT_TIMES = 100
 LAT_TIMES  = 1000
 
+def measure_act_memory(model, input_shape, is_cuda):
+	
+	model.eval()
+
+	x = torch.randn(input_shape)
+	if is_cuda:
+		model = model.cuda()
+		x = x.cuda()
+	else:
+		model = model.cpu()
+		x = x.cpu()
+	
+	with torch.no_grad():
+		for _ in range(10):
+			output = model(x)
+
+		output = model(x)
+		mem_list = model.get_activation_memory()
+
+		peak_mem = max(mem_list)
+		peak_mem_list = [peak_mem / 8, peak_mem / 4, peak_mem / 2, peak_mem]
+	
+	return peak_mem_list
+
+
 def measure_latency_in_ms(model, input_shape, is_cuda):
 	lat = AverageMeter()
 	model.eval()
