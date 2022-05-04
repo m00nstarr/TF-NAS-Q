@@ -72,6 +72,8 @@ def get_peak_memory_lookup(is_cuda):
 
 
 	# 112x112 cin=16 cout=24 s=2 relu
+
+    #stage1
 	print('112x112 cin=16 cout=24 s=2 relu')
 	for idx in range(len(PRIMITIVES)):
 		if (idx == 0) or (idx == 2):
@@ -97,12 +99,12 @@ def get_peak_memory_lookup(is_cuda):
 			shape = (1, 16, 112, 112) if is_cuda else (1, 16, 112, 112)
 			mem   = measure_act_memory(block, shape, is_cuda)
 			if idx < 4:
-				key = '{}_112_16_0_24_k{}_s2_relu'.format(block.name, block.kernel_size)
+				key = '{}_16_16_0_24_k{}_s2_relu'.format(block.name, block.kernel_size)
 			else:
 				if idx % 2 == 0:
-					key = '{}_112_16_16_24_k{}_s2_relu'.format(block.name, block.kernel_size)
+					key = '{}_16_16_16_24_k{}_s2_relu'.format(block.name, block.kernel_size)
 				else:
-					key = '{}_112_16_32_24_k{}_s2_relu'.format(block.name, block.kernel_size)
+					key = '{}_16_16_32_24_k{}_s2_relu'.format(block.name, block.kernel_size)
 			if key not in peak_memory_lookup:
 				peak_memory_lookup[key] = OrderedDict()
 
@@ -110,7 +112,7 @@ def get_peak_memory_lookup(is_cuda):
 			peak_memory_lookup[key][block.mid_channels] = mem
 			# time.sleep(0.1)
 
-
+    #stage2
 	# 56x56 cin=24 cout=24 s=1 relu
 	print('56x56 cin=24 cout=24 s=1 relu')
 	for idx in range(len(PRIMITIVES)):
@@ -138,12 +140,12 @@ def get_peak_memory_lookup(is_cuda):
 			shape = (1, 24, 56, 56) if is_cuda else (1, 24, 56, 56)
 			mem   = measure_act_memory(block, shape, is_cuda)
 			if idx < 4:
-				key = '{}_56_24_0_24_k{}_s1_relu'.format(block.name, block.kernel_size)
+				key = '{}_8_24_0_24_k{}_s1_relu'.format(block.name, block.kernel_size)
 			else:
 				if idx % 2 == 0:
-					key = '{}_56_24_24_24_k{}_s1_relu'.format(block.name, block.kernel_size)
+					key = '{}_8_24_24_24_k{}_s1_relu'.format(block.name, block.kernel_size)
 				else:
-					key = '{}_56_24_48_24_k{}_s1_relu'.format(block.name, block.kernel_size)	
+					key = '{}_8_24_48_24_k{}_s1_relu'.format(block.name, block.kernel_size)	
 			if key not in peak_memory_lookup:
 				peak_memory_lookup[key] = OrderedDict()
 			peak_memory_lookup[key][block.mid_channels] = mem
@@ -176,12 +178,12 @@ def get_peak_memory_lookup(is_cuda):
 			shape = (1, 24, 56, 56) if is_cuda else (1, 24, 56, 56)
 			mem   = measure_act_memory(block, shape, is_cuda)
 			if idx < 4:
-				key = '{}_56_24_0_40_k{}_s2_swish'.format(block.name, block.kernel_size)
+				key = '{}_8_24_0_40_k{}_s2_swish'.format(block.name, block.kernel_size)
 			else:
 				if idx % 2 == 0:
-					key = '{}_56_24_24_40_k{}_s2_swish'.format(block.name, block.kernel_size)
+					key = '{}_8_24_24_40_k{}_s2_swish'.format(block.name, block.kernel_size)
 				else:
-					key = '{}_56_24_48_40_k{}_s2_swish'.format(block.name, block.kernel_size)
+					key = '{}_8_24_48_40_k{}_s2_swish'.format(block.name, block.kernel_size)
 			if key not in peak_memory_lookup:
 				peak_memory_lookup[key] = OrderedDict()
 			peak_memory_lookup[key][block.mid_channels] = mem
@@ -214,12 +216,12 @@ def get_peak_memory_lookup(is_cuda):
 			shape = (1, 40, 28, 28) if is_cuda else (1, 40, 28, 28)
 			mem   = measure_act_memory(block, shape, is_cuda)
 			if idx < 4:
-				key = '{}_28_40_0_40_k{}_s1_swish'.format(block.name, block.kernel_size)
+				key = '{}_4_40_0_40_k{}_s1_swish'.format(block.name, block.kernel_size)
 			else:
 				if idx % 2 == 0:
-					key = '{}_28_40_40_40_k{}_s1_swish'.format(block.name, block.kernel_size)
+					key = '{}_4_40_40_40_k{}_s1_swish'.format(block.name, block.kernel_size)
 				else:
-					key = '{}_28_40_80_40_k{}_s1_swish'.format(block.name, block.kernel_size)
+					key = '{}_4_40_80_40_k{}_s1_swish'.format(block.name, block.kernel_size)
 			if key not in peak_memory_lookup:
 				peak_memory_lookup[key] = OrderedDict()
 			peak_memory_lookup[key][block.mid_channels] = mem
@@ -252,17 +254,18 @@ def get_peak_memory_lookup(is_cuda):
 			shape = (1, 40, 28, 28) if is_cuda else (1, 40, 28, 28)
 			mem   = measure_act_memory(block, shape, is_cuda)
 			if idx < 4:
-				key = '{}_28_40_0_80_k{}_s2_swish'.format(block.name, block.kernel_size)
+				key = '{}_4_40_0_80_k{}_s2_swish'.format(block.name, block.kernel_size)
 			else:
 				if idx % 2 == 0:
-					key = '{}_28_40_40_80_k{}_s2_swish'.format(block.name, block.kernel_size)
+					key = '{}_4_40_40_80_k{}_s2_swish'.format(block.name, block.kernel_size)
 				else:
-					key = '{}_28_40_80_80_k{}_s2_swish'.format(block.name, block.kernel_size)
+					key = '{}_4_40_80_80_k{}_s2_swish'.format(block.name, block.kernel_size)
 			if key not in peak_memory_lookup:
 				peak_memory_lookup[key] = OrderedDict()
 			peak_memory_lookup[key][block.mid_channels] = mem
 			# time.sleep(0.1)
 
+    #stage3
 	# 14x14 cin=80 cout=80 s=1 swish
 	print('14x14 cin=80 cout=80 s=1 swish')
 	for idx in range(len(PRIMITIVES)):
@@ -290,12 +293,12 @@ def get_peak_memory_lookup(is_cuda):
 			shape = (1, 80, 14, 14) if is_cuda else (1, 80, 14, 14)
 			mem   = measure_act_memory(block, shape, is_cuda)
 			if idx < 4:
-				key = '{}_14_80_0_80_k{}_s1_swish'.format(block.name, block.kernel_size)
+				key = '{}_2_80_0_80_k{}_s1_swish'.format(block.name, block.kernel_size)
 			else:
 				if idx % 2 ==0:
-					key = '{}_14_80_80_80_k{}_s1_swish'.format(block.name, block.kernel_size)
+					key = '{}_2_80_80_80_k{}_s1_swish'.format(block.name, block.kernel_size)
 				else:
-					key = '{}_14_80_160_80_k{}_s1_swish'.format(block.name, block.kernel_size)
+					key = '{}_2_80_160_80_k{}_s1_swish'.format(block.name, block.kernel_size)
 			if key not in peak_memory_lookup:
 				peak_memory_lookup[key] = OrderedDict()
 			peak_memory_lookup[key][block.mid_channels] = mem
@@ -328,12 +331,12 @@ def get_peak_memory_lookup(is_cuda):
 			shape = (1, 80, 14, 14) if is_cuda else (1, 80, 14, 14)
 			mem   = measure_act_memory(block, shape, is_cuda)
 			if idx < 4:
-				key = '{}_14_80_0_112_k{}_s1_swish'.format(block.name, block.kernel_size)
+				key = '{}_2_80_0_112_k{}_s1_swish'.format(block.name, block.kernel_size)
 			else:
 				if idx % 2 == 0:
-					key = '{}_14_80_80_112_k{}_s1_swish'.format(block.name, block.kernel_size)
+					key = '{}_2_80_80_112_k{}_s1_swish'.format(block.name, block.kernel_size)
 				else:
-					key = '{}_14_80_160_112_k{}_s1_swish'.format(block.name, block.kernel_size)
+					key = '{}_2_80_160_112_k{}_s1_swish'.format(block.name, block.kernel_size)
 			if key not in peak_memory_lookup:
 				peak_memory_lookup[key] = OrderedDict()
 			peak_memory_lookup[key][block.mid_channels] = mem
@@ -366,18 +369,19 @@ def get_peak_memory_lookup(is_cuda):
 			shape = (1, 112, 14, 14) if is_cuda else (1, 112, 14, 14)
 			mem   = measure_act_memory(block, shape, is_cuda)
 			if idx < 4:
-				key = '{}_14_112_0_112_k{}_s1_swish'.format(block.name, block.kernel_size)
+				key = '{}_2_112_0_112_k{}_s1_swish'.format(block.name, block.kernel_size)
 			else:
 				if idx % 2 == 0:
-					key = '{}_14_112_112_112_k{}_s1_swish'.format(block.name, block.kernel_size)
+					key = '{}_2_112_112_112_k{}_s1_swish'.format(block.name, block.kernel_size)
 				else:
-					key = '{}_14_112_224_112_k{}_s1_swish'.format(block.name, block.kernel_size)
+					key = '{}_2_112_224_112_k{}_s1_swish'.format(block.name, block.kernel_size)
 			if key not in peak_memory_lookup:
 				peak_memory_lookup[key] = OrderedDict()
 			peak_memory_lookup[key][block.mid_channels] = mem
 			# time.sleep(0.1)
 
-	# 14x14 cin=112 cout=192 s=2 swish
+	#
+    # -> 14x14 cin=112 cout=320 s=2 swish
 	print('14x14 cin=112 cout=320 s=2 swish')
 	for idx in range(len(PRIMITIVES)):
 		if (idx == 0) or (idx == 2):
@@ -386,7 +390,7 @@ def get_peak_memory_lookup(is_cuda):
 		op = PRIMITIVES[idx]
 		if op.startswith('MBI') and (idx % 2 == 0):
 			mc_list = list(range(1, 112*4+1))
-			# mc_list = list(range(0, 112*4+1, 8))
+			# mc_list = list(range(0, 112*4+1, 8))cd
 			# mc_list[0] = 1
 		elif op.startswith('MBI') and (idx % 2 == 1):
 			mc_list = list(range(1, 112*8+1))
@@ -404,12 +408,12 @@ def get_peak_memory_lookup(is_cuda):
 			shape = (1, 112, 14, 14) if is_cuda else (1, 112, 14, 14)
 			mem   = measure_act_memory(block, shape, is_cuda)
 			if idx < 4:
-				key = '{}_14_112_0_320_k{}_s2_swish'.format(block.name, block.kernel_size)
+				key = '{}_2_112_0_320_k{}_s2_swish'.format(block.name, block.kernel_size)
 			else:
 				if idx % 2 == 0:
-					key = '{}_14_112_112_320_k{}_s2_swish'.format(block.name, block.kernel_size)
+					key = '{}_2_112_112_320_k{}_s2_swish'.format(block.name, block.kernel_size)
 				else:
-					key = '{}_14_112_224_320_k{}_s2_swish'.format(block.name, block.kernel_size)
+					key = '{}_2_112_224_320_k{}_s2_swish'.format(block.name, block.kernel_size)
 			if key not in peak_memory_lookup:
 				peak_memory_lookup[key] = OrderedDict()
 			peak_memory_lookup[key][block.mid_channels] = mem
@@ -453,8 +457,7 @@ def get_peak_memory_lookup(is_cuda):
 			peak_memory_lookup[key][block.mid_channels] = mem
 			# time.sleep(0.1)
 
-	# 7x7 cin=192 cout=320 s=1 swish
-	# -> 7x7 cin=112 cout=320 s=1 swish
+	# 7x7 cin=112 cout=320 s=1 swish
 	print('14x14 cin=112 cout=320 s=1 swish')
 	for idx in range(len(PRIMITIVES)):
 		if (idx == 0) or (idx == 2):
@@ -478,19 +481,19 @@ def get_peak_memory_lookup(is_cuda):
 
 		for mc in mc_list:
 			block = OPS[PRIMITIVES[idx]](112, mc, 320, 1, True, 'swish')
-			shape = (1, 112, 14, 14) if is_cuda else (1, 112, 14,14)
+			shape = (1, 112, 14, 14) if is_cuda else (1, 112, 14, 14)
 			mem   = measure_act_memory(block, shape, is_cuda)
 			if idx < 4:
-				key = '{}_14_112_0_320_k{}_s1_swish'.format(block.name, block.kernel_size)
+				key = '{}_2_112_0_320_k{}_s1_swish'.format(block.name, block.kernel_size)
 			else:
 				if idx % 2 == 0:
-					key = '{}_14_112_112_320_k{}_s1_swish'.format(block.name, block.kernel_size)
+					key = '{}_2_112_112_320_k{}_s1_swish'.format(block.name, block.kernel_size)
 				else:
-					key = '{}_14_112_224_320_k{}_s1_swish'.format(block.name, block.kernel_size)
+					key = '{}_2_112_224_320_k{}_s1_swish'.format(block.name, block.kernel_size)
 			if key not in peak_memory_lookup:
 				peak_memory_lookup[key] = OrderedDict()
 			peak_memory_lookup[key][block.mid_channels] = mem
-			#time.sleep(0.1)
+			# time.sleep(0.1)
 
 	return peak_memory_lookup
 
@@ -979,7 +982,7 @@ def get_latency_lookup(is_cuda):
 if __name__ == '__main__':
 	#print('measure peak memory on cpu......')
 	peak_memory_lookup = get_peak_memory_lookup(is_cuda=True)
-	with open('peak_memory_cpu.pkl', 'wb') as f:
+	with open('peak_memory_yamae.pkl', 'wb') as f:
 		pickle.dump(peak_memory_lookup, f)
 
 	#print('measure latency on gpu......')
