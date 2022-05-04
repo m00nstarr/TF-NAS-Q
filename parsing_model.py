@@ -46,38 +46,37 @@ def get_op_and_depth_weights(model_or_path):
 
 def parse_architecture(op_weights, depth_weights, quantize_weights):
 	parsed_arch = OrderedDict([
-			('stage1', [OrderedDict([('block1', -1), ('block2', -1)]), -1]),
-			('stage2', [OrderedDict([('block1', -1), ('block2', -1), ('block3', -1)]),-1]),
-			('stage3', [OrderedDict([('block1', -1), ('block2', -1), ('block3', -1), ('block4', -1)]),-1]),
-			('stage4', [OrderedDict([('block1', -1), ('block2', -1), ('block3', -1), ('block4', -1)]),-1]),
-			('stage5', [OrderedDict([('block1', -1), ('block2', -1), ('block3', -1), ('block4', -1)]),-1]),
-			# ('stage6', [OrderedDict([('block1', -1)]),-1]),
+			('stage1', OrderedDict([('block1', [-1, -1]), ('block2', [-1, -1])  ])),
+			('stage2', OrderedDict([('block1', [-1, -1]), ('block2', [-1, -1]), ('block3', [-1, -1])])),
+			('stage3', OrderedDict([('block1', [-1, -1]), ('block2', [-1, -1]), ('block3', [-1, -1]), ('block4', [-1, -1])])),
+			('stage4', OrderedDict([('block1', [-1, -1]), ('block2', [-1, -1]), ('block3', [-1, -1]), ('block4', [-1, -1])])),
+			('stage5', OrderedDict([('block1', [-1, -1]), ('block2', [-1, -1]), ('block3', [-1, -1]), ('block4', [-1, -1])])),
 		])
 
 	stages = []
 	blocks = []
 	for stage in parsed_arch:
-		for block in parsed_arch[stage][0]:
+		for block in parsed_arch[stage]:
 			stages.append(stage)
 			blocks.append(block)
 
 	op_max_indexes = [np.argmax(x) for x in op_weights]
 
 	for (stage, block, op_max_index) in zip(stages, blocks, op_max_indexes):
-		parsed_arch[stage][0][block] = op_max_index
+		parsed_arch[stage][block][0] = op_max_index
+
+	# 0 : 4-bit , 1 : 8-bit, 2: 16-bit, 3: 32-bit
+	quantize_max_indexes = [np.argmax(x) for x in quantize_weights]
+	for (stage, block ,quantize_max_index) in zip(stages, blocks, quantize_max_indexes):
+		parsed_arch[stage][block][1] = quantize_max_index
 
 	depth_max_indexes = [np.argmax(x)+1 for x in depth_weights]
 	for stage_index, depth_max_index in enumerate(depth_max_indexes, start=1):
 		stage = 'stage{}'.format(stage_index)
 		for block_index in range(depth_max_index+1, 5+1):
 			block = 'block{}'.format(block_index)
-			if block in parsed_arch[stage][0]:
-				del parsed_arch[stage][0][block]
-
-	# 0 : 8-bit , 1 : 32-bit
-	quantize_max_indexes = [np.argmax(x) for x in quantize_weights]
-	for (stage, quantize_max_index) in zip(parsed_arch, quantize_max_indexes):
-		parsed_arch[stage][1] = quantize_max_index
+			if block in parsed_arch[stage]:
+				del parsed_arch[stage][block]
 
 	print(parsed_arch)
 	return parsed_arch

@@ -49,8 +49,9 @@ QUANTIZE_OPS = {
 	32,
 }
 
+
 class MixedOP(nn.Module):
-	def __init__(self, in_channels, out_channels, stride, affine, act_func, num_ops, mc_num_dict, peakmemory_list, stage_num, target_mem):
+	def __init__(self, in_channels, out_channels, stride, affine, act_func, num_ops, mc_num_dict, peakmemory_list, stage_num, target_mem, memory_lookup):
 		super(MixedOP, self).__init__()
 		self.num_ops = num_ops
 		# self.lat_lookup = lat_lookup
@@ -59,6 +60,7 @@ class MixedOP(nn.Module):
 		self.peakmemory_list = peakmemory_list
 		self.stage_num = stage_num
 		self.target_mem = target_mem
+		self.memory_lookup = memory_lookup
 
 		# for quantization
 		self.activation_quantizer_16b = AsymmetricQuantizer(
@@ -152,14 +154,9 @@ class MixedOP(nn.Module):
 			
 			#peak_mem 또한 반영
 			#4개의 oepration 별 peak memory 체크
-			peak_mem = []
-			for step,mm in enumerate(self.m_ops):
-				
-				act_mem = mm.get_activation_memory()
-				logging.info("%d", step)
-				print(act_mem)
-				peak_mem.append(max(act_mem))
 
+			peak_mem = self.get_lookup_memory(x.size(-1))
+		
 			#4개의 OP average peak memory
 			average_peak_mem = sum(w * op_peak_mem for w, op_peak_mem in zip(weights, peak_mem))
 
@@ -169,7 +166,26 @@ class MixedOP(nn.Module):
 			
 			diff_peak_mem = abs(block_average_peak_mem - self.target_mem)
 			return out_, diff_peak_mem
-			
+	
+	def get_lookup_memory(self, size):
+		peak_memory = []
+		for idx, op in enumerate(self.m_ops):
+			if isinstance(op, IdentityLayer):
+				peak_memory.append(0)
+			else:
+				key = '{}_{}_{}_{}_{}_k{}_s{}_{}'.format(
+												op.name,
+												size,
+												op.in_channels,
+												op.se_channels,
+												op.out_channels,
+												op.kernel_size,
+												op.stride,
+												op.act_func)
+				mid_channels = op.mid_channels
+				peak_memory.append(self.memory_lookup[key][mid_channels])
+
+		return peak_memory		
 
 	def _initialize_log_alphas(self):
 		alphas = torch.zeros((self.num_ops,))
@@ -188,7 +204,7 @@ class MixedOP(nn.Module):
 
 
 class MixedStage(nn.Module):
-	def __init__(self, ics, ocs, ss, affs, acts, mc_num_ddict, stage_type, stage_num, peakmemory_list, target_mem):
+	def __init__(self, ics, ocs, ss, affs, acts, mc_num_ddict, stage_type, stage_num, peakmemory_list, target_mem, memory_lookup):
 		super(MixedStage, self).__init__()
 		self.mc_num_ddict = mc_num_ddict
 		self.stage_type = stage_type # 0 for stage5 || 1 for stage1 || 2 for stage2 || 3 for stage3/4
@@ -199,22 +215,22 @@ class MixedStage(nn.Module):
 
 		# stage5
 		if stage_type == 0:
-			self.block1 = MixedOP(ics[0], ocs[0], ss[0], affs[0], acts[0], len(PRIMITIVES), mc_num_ddict['block1'], peakmemory_list = self.peakmemory_list, stage_num=stage_num, target_mem = target_mem)
+			self.block1 = MixedOP(ics[0], ocs[0], ss[0], affs[0], acts[0], len(PRIMITIVES), mc_num_ddict['block1'], peakmemory_list = self.peakmemory_list, stage_num=stage_num, target_mem = target_mem, memory_lookup = memory_lookup)
 		# stage1
 		elif stage_type == 1:
-			self.block1 = MixedOP(ics[0], ocs[0], ss[0], affs[0], acts[0], len(PRIMITIVES), mc_num_ddict['block1'], peakmemory_list = self.peakmemory_list, stage_num=stage_num, target_mem = target_mem)
-			self.block2 = MixedOP(ics[1], ocs[1], ss[1], affs[1], acts[1], len(PRIMITIVES), mc_num_ddict['block2'], peakmemory_list = self.peakmemory_list, stage_num=stage_num, target_mem = target_mem)
+			self.block1 = MixedOP(ics[0], ocs[0], ss[0], affs[0], acts[0], len(PRIMITIVES), mc_num_ddict['block1'], peakmemory_list = self.peakmemory_list, stage_num=stage_num, target_mem = target_mem, memory_lookup = memory_lookup)
+			self.block2 = MixedOP(ics[1], ocs[1], ss[1], affs[1], acts[1], len(PRIMITIVES), mc_num_ddict['block2'], peakmemory_list = self.peakmemory_list, stage_num=stage_num, target_mem = target_mem, memory_lookup = memory_lookup)
 		# stage2
 		elif stage_type == 2:
-			self.block1 = MixedOP(ics[0], ocs[0], ss[0], affs[0], acts[0], len(PRIMITIVES), mc_num_ddict['block1'], peakmemory_list = self.peakmemory_list, stage_num=stage_num, target_mem = target_mem)
-			self.block2 = MixedOP(ics[1], ocs[1], ss[1], affs[1], acts[1], len(PRIMITIVES), mc_num_ddict['block2'], peakmemory_list = self.peakmemory_list, stage_num=stage_num, target_mem = target_mem)
-			self.block3 = MixedOP(ics[2], ocs[2], ss[2], affs[2], acts[2], len(PRIMITIVES), mc_num_ddict['block3'], peakmemory_list = self.peakmemory_list, stage_num=stage_num, target_mem = target_mem)
+			self.block1 = MixedOP(ics[0], ocs[0], ss[0], affs[0], acts[0], len(PRIMITIVES), mc_num_ddict['block1'], peakmemory_list = self.peakmemory_list, stage_num=stage_num, target_mem = target_mem, memory_lookup = memory_lookup)
+			self.block2 = MixedOP(ics[1], ocs[1], ss[1], affs[1], acts[1], len(PRIMITIVES), mc_num_ddict['block2'], peakmemory_list = self.peakmemory_list, stage_num=stage_num, target_mem = target_mem, memory_lookup = memory_lookup)
+			self.block3 = MixedOP(ics[2], ocs[2], ss[2], affs[2], acts[2], len(PRIMITIVES), mc_num_ddict['block3'], peakmemory_list = self.peakmemory_list, stage_num=stage_num, target_mem = target_mem, memory_lookup = memory_lookup)
 		# stage3, stage4
 		elif stage_type == 3:
-			self.block1 = MixedOP(ics[0], ocs[0], ss[0], affs[0], acts[0], len(PRIMITIVES), mc_num_ddict['block1'], peakmemory_list = self.peakmemory_list, stage_num=stage_num, target_mem = target_mem)
-			self.block2 = MixedOP(ics[1], ocs[1], ss[1], affs[1], acts[1], len(PRIMITIVES), mc_num_ddict['block2'], peakmemory_list = self.peakmemory_list, stage_num=stage_num, target_mem = target_mem)
-			self.block3 = MixedOP(ics[2], ocs[2], ss[2], affs[2], acts[2], len(PRIMITIVES), mc_num_ddict['block3'], peakmemory_list = self.peakmemory_list, stage_num=stage_num, target_mem = target_mem)
-			self.block4 = MixedOP(ics[3], ocs[3], ss[3], affs[3], acts[3], len(PRIMITIVES), mc_num_ddict['block4'], peakmemory_list = self.peakmemory_list, stage_num=stage_num, target_mem = target_mem)
+			self.block1 = MixedOP(ics[0], ocs[0], ss[0], affs[0], acts[0], len(PRIMITIVES), mc_num_ddict['block1'], peakmemory_list = self.peakmemory_list, stage_num=stage_num, target_mem = target_mem, memory_lookup = memory_lookup)
+			self.block2 = MixedOP(ics[1], ocs[1], ss[1], affs[1], acts[1], len(PRIMITIVES), mc_num_ddict['block2'], peakmemory_list = self.peakmemory_list, stage_num=stage_num, target_mem = target_mem, memory_lookup = memory_lookup)
+			self.block3 = MixedOP(ics[2], ocs[2], ss[2], affs[2], acts[2], len(PRIMITIVES), mc_num_ddict['block3'], peakmemory_list = self.peakmemory_list, stage_num=stage_num, target_mem = target_mem, memory_lookup = memory_lookup)
+			self.block4 = MixedOP(ics[3], ocs[3], ss[3], affs[3], acts[3], len(PRIMITIVES), mc_num_ddict['block4'], peakmemory_list = self.peakmemory_list, stage_num=stage_num, target_mem = target_mem, memory_lookup = memory_lookup)
 		else:
 			raise ValueError('invalid stage_type...')
 
@@ -307,7 +323,7 @@ class MixedStage(nn.Module):
 
 
 class Network(nn.Module):
-	def __init__(self, num_classes, mc_num_dddict, target_mem):
+	def __init__(self, num_classes, mc_num_dddict, target_mem, memory_lookup):
 		super(Network, self).__init__()
 		self.mc_num_dddict = mc_num_dddict
 		self.peakmemory_list = [0.0, 0.0, 0.0, 0.0, 0.0]
@@ -324,7 +340,8 @@ class Network(nn.Module):
 							stage_type = 1,
 							stage_num = 1,
 							peakmemory_list = self.peakmemory_list,
-							target_mem = target_mem)
+							target_mem = target_mem,
+							memory_lookup = memory_lookup)
 		self.stage2 = MixedStage(
 							ics  = [24,40,40],
 							ocs  = [40,40,40],
@@ -335,7 +352,8 @@ class Network(nn.Module):
 							stage_type = 2,
 							stage_num = 2,
 							peakmemory_list = self.peakmemory_list,
-							target_mem = target_mem)
+							target_mem = target_mem,
+							memory_lookup = memory_lookup)
 		self.stage3 = MixedStage(
 							ics  = [40,80,80,80],
 							ocs  = [80,80,80,80],
@@ -346,7 +364,8 @@ class Network(nn.Module):
 							stage_type = 3,
 							stage_num = 3,
 							peakmemory_list = self.peakmemory_list,
-							target_mem = target_mem)
+							target_mem = target_mem,
+							memory_lookup = memory_lookup)
 		self.stage4 = MixedStage(
 							ics  = [80,112,112,112],
 							ocs  = [112,112,112,112],
@@ -357,7 +376,8 @@ class Network(nn.Module):
 							stage_type = 3,
 							stage_num = 4,
 							peakmemory_list = self.peakmemory_list,
-							target_mem = target_mem)
+							target_mem = target_mem,
+							memory_lookup = memory_lookup)
 		self.stage5 = MixedStage(
 							ics  = [112,],
 							ocs  = [320,],
@@ -368,7 +388,8 @@ class Network(nn.Module):
 							stage_type = 0,
 							stage_num = 5,
 							peakmemory_list = self.peakmemory_list,
-							target_mem = target_mem)
+							target_mem = target_mem,
+							memory_lookup = memory_lookup)
 		self.feature_mix_layer = ConvLayer(320, 1280, kernel_size=1, stride=1, affine=False, act_func='swish')
 		self.global_avg_pooling = nn.AdaptiveAvgPool2d(1)
 		self.classifier = LinearLayer(1280, num_classes)
