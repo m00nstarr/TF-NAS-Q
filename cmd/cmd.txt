@@ -200,3 +200,33 @@ CUDA_VISIBLE_DEVICES=0 python -W ignore -u train_search.py \
 	--target_lat 15.0 \
 	--target_memory 0.3125 \
 	--note "TF-NAS-lam0.1-lat15.0-gpu"
+
+
+
+
+
+----evaluate the architecture----
+
+CUDA_VISIBLE_DEVICES=0,1 python -u train_eval.py \
+	--train_root "/home/moon/tiny-imagenet-200/train" \
+	--val_root "/home/moon/tiny-imagenet-200/val" \
+	--train_list "/home/dy/tiny-imagenet-200/tinyImageNet-100-trainlist.txt" \
+	--val_list "/home/dy/tiny-imagenet-200/tinyImageNet-100-vallist.txt" \
+	--model_path "./checkpoints/search-20220504-172320-TF-NAS-lam0.1-lat15.0-gpu/searched_model_11.pth.tar"
+
+CUDA_VISIBLE_DEVICES=1 python -W ignore -u train_eval.py \
+	--train_root "/home/moon/tiny-imagenet-200" \
+    --val_root "/home/moon/tiny-imagenet-200" \
+	--train_list "/home/moon/tiny-imagenet-200/tinyImageNet-100-trainlist.txt" \
+	--val_list "/home/moon/tiny-imagenet-200/tinyImageNet-100-vallist.txt" \
+    --model_path "./checkpoints/search-20220504-172320-TF-NAS-lam0.1-lat15.0-gpu/searched_model_56.pth.tar" \
+	--save "./eval_checkpoints" \
+	--print_freq 100 \
+	--workers 4 \
+	--epochs 500 \
+	--batch_size 16 \
+	--lr 0.025 \
+	--momentum 0.9 \
+	--grad_clip 5.0 \
+	--num_classes 200 \
+	--note "TF-NAS-lam0.1-lat15.0-gpu"

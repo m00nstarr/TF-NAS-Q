@@ -71,11 +71,12 @@ parser.add_argument('--memory_lookup_path', type=str, default = "./latency_pkl/p
 
 args = parser.parse_args()
 
-args.save = os.path.join(args.save, 'search-{}-{}'.format(time.strftime("%Y%m%d-%H%M%S"), args.note))
+# args.save = os.path.join(args.save, 'search-{}-{}'.format(time.strftime("%Y%m%d-%H%M%S"), args.note))
 #args.save = os.path.join(args.save,'search-20220413-162213-'+args.note)
 #args.save = os.path.join(args.save,'search-20220414-141341-'+args.note)
 #args.save = os.path.join(args.save,'search-20220418-111514-'+args.note)
 #args.save = os.path.join(args.save,'search-20220502-194440-'+args.note)
+args.save = os.path.join(args.save,'search-20220504-172320-'+args.note)
 create_exp_dir(args.save, scripts_to_save=None)
 
 log_format = '%(asctime)s %(message)s'
@@ -179,7 +180,7 @@ def main():
 	# val_queue = torch.utils.data.DataLoader(val_set, batch_size=args.batch_size,
     #                              shuffle=False, pin_memory=True, num_workers=args.workers)
 
-	for epoch in range(0,args.epochs):
+	for epoch in range(55,args.epochs):
 		
 		mc_num_dddict = get_mc_num_dddict(mc_mask_dddict)
 		model = Network(args.num_classes, mc_num_dddict, target_mem = args.target_memory, memory_lookup = fake_peak_memory_lookup)
@@ -308,84 +309,7 @@ def main():
 				else:
 					logging.info('Stage{} No Operation...'.format(cur_stage))
 				logging.info('After, the {} current peakmemory: {:.4f}, the target peakmemory: {:.4f}'.format(stage, cur_after_mem, args.target_memory))
-
-
-			# stage = 'stage1'
-			# s1_before_mem = get_lookup_peak_memory(parsed_arch, mc_num_dddict, peak_memory_lookup_key_dddict, peak_memory_lookup, stage)
-			# logging.info('Before, the current memory: {:.4f}, the target peak memory: {:.4f}'.format(s1_before_mem, args.target_memory))
-			# if s1_before_mem > args.target_memory:
-			# 	logging.info('Stage1 Shrinking.....')
-			# 	stages = ['stage1']
-			# 	mc_num_dddict, s1_after_mem = fit_mc_num_by_peak_memory(parsed_arch, mc_num_dddict, mc_maxnum_dddict, 
-			# 											peak_memory_lookup_key_dddict, peak_memory_lookup, args.target_memory, stages, sign=-1)
-			# elif s1_before_mem < args.target_memory:
-			# 	logging.info('Stage1 Expanding.....')
-			# 	stages = ['stage1']
-			# 	mc_num_dddict, s1_after_mem = fit_mc_num_by_peak_memory(parsed_arch, mc_num_dddict, mc_maxnum_dddict, 
-			# 											peak_memory_lookup_key_dddict, peak_memory_lookup, args.target_memory, stages, sign=1)
-			# logging.info('After, the stage1 current peakmemory: {:.4f}, the target peakmemory: {:.4f}'.format(s1_after_mem, args.target_memory))
-			
-			# stage = 'stage2'
-			# s2_before_mem = get_lookup_peak_memory(parsed_arch, mc_num_dddict, peak_memory_lookup_key_dddict, peak_memory_lookup, stage)
-			# logging.info('Before, the current memory: {:.4f}, the target peak memory: {:.4f}'.format(s2_before_mem, args.target_memory))
-			# if s2_before_mem > args.target_memory:
-			# 	logging.info('Stage2 Shrinking.....')
-			# 	stages = ['stage2']
-			# 	mc_num_dddict, s2_after_mem = fit_mc_num_by_peak_memory(parsed_arch, mc_num_dddict, mc_maxnum_dddict, 
-			# 											peak_memory_lookup_key_dddict, peak_memory_lookup, args.target_memory, stages, sign=-1)
-			# elif s2_before_mem < args.target_memory:
-			# 	logging.info('Stage2 Expanding.....')
-			# 	stages = ['stage2']
-			# 	mc_num_dddict, s2_after_mem = fit_mc_num_by_peak_memory(parsed_arch, mc_num_dddict, mc_maxnum_dddict, 
-			# 											peak_memory_lookup_key_dddict, peak_memory_lookup, args.target_memory, stages, sign=1)
-			# logging.info('After, the stage2 current peakmemory: {:.4f}, the target peakmemory: {:.4f}'.format(s2_after_mem, args.target_memory))
-
-
-			# stage = 'stage3'
-			# s3_before_mem = get_lookup_peak_memory(parsed_arch, mc_num_dddict, peak_memory_lookup_key_dddict, peak_memory_lookup, stage)
-			# logging.info('Before, the current memory: {:.4f}, the target peak memory: {:.4f}'.format(s3_before_mem, args.target_memory))
-			# if s3_before_mem > args.target_memory:
-			# 	logging.info('Stage3 Shrinking.....')
-			# 	stages = ['stage3']
-			# 	mc_num_dddict, s3_after_mem = fit_mc_num_by_peak_memory(parsed_arch, mc_num_dddict, mc_maxnum_dddict, 
-			# 											peak_memory_lookup_key_dddict, peak_memory_lookup, args.target_memory, stages, sign=-1)
-			# elif s3_before_mem < args.target_memory:
-			# 	logging.info('Stage3 Expanding.....')
-			# 	stages = ['stage3']
-			# 	mc_num_dddict, s3_after_mem = fit_mc_num_by_peak_memory(parsed_arch, mc_num_dddict, mc_maxnum_dddict, 
-			# 											peak_memory_lookup_key_dddict, peak_memory_lookup, args.target_memory, stages, sign=1)
-			# logging.info('After, the stage3 current peakmemory: {:.4f}, the target peakmemory: {:.4f}'.format(s3_after_mem, args.target_memory))
-
-			# stage = 'stage4'
-			# s4_before_mem = get_lookup_peak_memory(parsed_arch, mc_num_dddict, peak_memory_lookup_key_dddict, peak_memory_lookup, stage)
-			# logging.info('Before, the current memory: {:.4f}, the target peak memory: {:.4f}'.format(s4_before_mem, args.target_memory))
-			# if s4_before_mem > args.target_memory:
-			# 	logging.info('Stage4 Shrinking.....')
-			# 	stages = ['stage4']
-			# 	mc_num_dddict, s4_after_mem = fit_mc_num_by_peak_memory(parsed_arch, mc_num_dddict, mc_maxnum_dddict, 
-			# 											peak_memory_lookup_key_dddict, peak_memory_lookup, args.target_memory, stages, sign=-1)
-			# elif s4_before_mem < args.target_memory:
-			# 	logging.info('Stage4 Expanding.....')
-			# 	stages = ['stage4']
-			# 	mc_num_dddict, s4_after_mem = fit_mc_num_by_peak_memory(parsed_arch, mc_num_dddict, mc_maxnum_dddict, 
-			# 											peak_memory_lookup_key_dddict, peak_memory_lookup, args.target_memory, stages, sign=1)
-			# logging.info('After, the stage4 current peakmemory: {:.4f}, the target peakmemory: {:.4f}'.format(s2_after_mem, args.target_memory))
-
-			# stage = 'stage5'
-			# s5_before_mem = get_lookup_peak_memory(parsed_arch, mc_num_dddict, peak_memory_lookup_key_dddict, peak_memory_lookup, stage)
-			# logging.info('Before, the current memory: {:.4f}, the target peak memory: {:.4f}'.format(s2_before_mem, args.target_memory))
-			# if s2_before_mem > args.target_memory:
-			# 	logging.info('Stage5 Shrinking.....')
-			# 	stages = ['stage5']
-			# 	mc_num_dddict, s5_after_mem = fit_mc_num_by_peak_memory(parsed_arch, mc_num_dddict, mc_maxnum_dddict, 
-			# 											peak_memory_lookup_key_dddict, peak_memory_lookup, args.target_memory, stages, sign=-1)
-			# elif s1_before_mem < args.target_memory:
-			# 	logging.info('Stage5 Expanding.....')
-			# 	stages = ['stage5']
-			# 	mc_num_dddict, s5_after_mem = fit_mc_num_by_peak_memory(parsed_arch, mc_num_dddict, mc_maxnum_dddict, 
-			# 											peak_memory_lookup_key_dddict, peak_memory_lookup, args.target_memory, stages, sign=1)
-			# logging.info('After, the stage5 current peakmemory: {:.4f}, the target peakmemory: {:.4f}'.format(s2_after_mem, args.target_memory))
-
+		
 			# change mc_mask_dddict based on mc_num_dddict
 			for stage in parsed_arch:
 				for block in parsed_arch[stage]:
@@ -400,6 +324,8 @@ def main():
 						weight_l1_order = np.argsort(weight_l1_norm)
 						weight_l1_order_rev = weight_l1_order[::-1][:mc_num]
 						mc_mask_dddict[stage][block][op_idx].data[weight_l1_order_rev.tolist()] = 1.0
+			
+			print(parsed_arch)
 
 		# save model
 		model_path = os.path.join(args.save, 'searched_model_{:02}.pth.tar'.format(epoch+1))
@@ -451,6 +377,8 @@ def train_wo_arch(train_queue, model, criterion, optimizer_w):
 def train_w_arch(train_queue, val_queue, model, criterion, optimizer_w, optimizer_a):
 	objs_a = AverageMeter()
 	objs_w = AverageMeter()
+	objs_m = AverageMeter()
+	loss_ = AverageMeter()
 	top1   = AverageMeter()
 	top5   = AverageMeter()
 
@@ -521,11 +449,13 @@ def train_w_arch(train_queue, val_queue, model, criterion, optimizer_w, optimize
 			
 			n = x_a.size(0)
 			objs_a.update(loss_a.item(), n)
+			objs_m.update(loss_q.item(), n)
+			loss_.update(loss.item(), n)			
 
 
 		if step % args.print_freq == 0:
-			logging.info('TRAIN w_Arch Step: %04d Objs_W: %f R1: %f R5: %f Objs_A: %f loss_q: %f' , 
-						  step, objs_w.avg, top1.avg, top5.avg, objs_a.avg, loss_q)
+			logging.info('TRAIN w_Arch Step: %04d Objs_W: %f R1: %f R5: %f Objs_A: %f loss_q: %f loss_avg: %f' , 
+						  step, objs_w.avg, top1.avg, top5.avg, objs_a.avg, objs_m.avg, loss_.avg)
 
 	return top1.avg
 
@@ -591,6 +521,7 @@ def fit_mc_num_by_peak_memory(parsed_arch, mc_num_dddict, mc_maxnum_dddict, peak
 			parsed_mc_maxnum_list.append(mc_maxnum_dddict[stage][block][op_idx])
 
 	min_parsed_mc_num = min(parsed_mc_num_list)
+
 	parsed_mc_ratio_list = [int(round(x/min_parsed_mc_num)) for x in parsed_mc_num_list]
 	parsed_mc_bound_switches = [True] * len(parsed_mc_ratio_list)
 

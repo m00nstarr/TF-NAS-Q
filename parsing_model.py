@@ -43,14 +43,14 @@ def get_op_and_depth_weights(model_or_path):
 
 	return op_weights, depth_weights, quantize_weights
 
-
+# 기존 tf nas는 quantize_weights 없이 만들어야 함
 def parse_architecture(op_weights, depth_weights, quantize_weights):
 	parsed_arch = OrderedDict([
 			('stage1', OrderedDict([('block1', [-1, -1]), ('block2', [-1, -1])  ])),
 			('stage2', OrderedDict([('block1', [-1, -1]), ('block2', [-1, -1]), ('block3', [-1, -1])])),
 			('stage3', OrderedDict([('block1', [-1, -1]), ('block2', [-1, -1]), ('block3', [-1, -1]), ('block4', [-1, -1])])),
 			('stage4', OrderedDict([('block1', [-1, -1]), ('block2', [-1, -1]), ('block3', [-1, -1]), ('block4', [-1, -1])])),
-			('stage5', OrderedDict([('block1', [-1, -1]), ('block2', [-1, -1]), ('block3', [-1, -1]), ('block4', [-1, -1])])),
+			('stage5', OrderedDict([('block1', [-1, -1])])),
 		])
 
 	stages = []
@@ -77,8 +77,7 @@ def parse_architecture(op_weights, depth_weights, quantize_weights):
 			block = 'block{}'.format(block_index)
 			if block in parsed_arch[stage]:
 				del parsed_arch[stage][block]
-
-	print(parsed_arch)
+	# print(parsed_arch)
 	return parsed_arch
 
 

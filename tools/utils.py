@@ -11,8 +11,8 @@ from torchvision.models.resnet import BasicBlock, Bottleneck
 from torchvision.models.mobilenetv2 import InvertedResidual
 
 
-INIT_TIMES = 100
-LAT_TIMES  = 1000
+INIT_TIMES = 1
+LAT_TIMES  = 10
 
 def measure_act_memory(model, input_shape, is_cuda):
 	
@@ -60,7 +60,7 @@ def measure_latency_in_ms(model, input_shape, is_cuda):
 			toc = time.time()
 			lat.update(toc-tic, x.size(0))
 
-	return lat.avg * 1000 # save as ms
+	return lat.avg * LAT_TIMES # save as ms
 
 
 class AverageMeter(object):
