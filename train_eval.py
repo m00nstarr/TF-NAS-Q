@@ -103,10 +103,11 @@ def main():
 	# create model
 	logging.info('parsing the architecture')
 	if args.model_path and os.path.isfile(args.model_path):
-		op_weights, depth_weights = get_op_and_depth_weights(args.model_path)
-		parsed_arch = parse_architecture(op_weights, depth_weights)
+		op_weights, depth_weights, quantized_weights= get_op_and_depth_weights(args.model_path)
+		parsed_arch = parse_architecture(op_weights, depth_weights, quantized_weights)
 		mc_mask_dddict = torch.load(args.model_path)['mc_mask_dddict']
 		mc_num_dddict  = get_mc_num_dddict(mc_mask_dddict)
+		
 		model = Network(args.num_classes, parsed_arch, mc_num_dddict, None, args.dropout_rate, args.drop_connect_rate)
 	elif args.config_path and os.path.isfile(args.config_path):
 		model_config = json.load(open(args.config_path, 'r'))

@@ -3,6 +3,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 from .layers import *
 
+from .quantizers import *
+from .range_trackers import *
+
 PRIMITIVES = [
 	'MBI_k3_e3',
 	'MBI_k3_e6',
@@ -67,14 +70,14 @@ class Network(nn.Module):
 										ss   = [1,1,1,1],
 										affs = [True, True, True, True],
 										acts = ['swish', 'swish', 'swish', 'swish'],)
+		# self.stage5 = self._make_stage('stage5',
+		# 								ics  = [112,192,192,192],
+		# 								ocs  = [192,192,192,192],
+		# 								ss   = [2,1,1,1],
+		# 								affs = [True, True, True, True],
+		# 								acts = ['swish', 'swish', 'swish', 'swish'],)
 		self.stage5 = self._make_stage('stage5',
-										ics  = [112,192,192,192],
-										ocs  = [192,192,192,192],
-										ss   = [2,1,1,1],
-										affs = [True, True, True, True],
-										acts = ['swish', 'swish', 'swish', 'swish'],)
-		self.stage6 = self._make_stage('stage6',
-										ics  = [192,],
+										ics  = [112,],
 										ocs  = [320,],
 										ss   = [1,],
 										affs = [True,],
@@ -82,6 +85,22 @@ class Network(nn.Module):
 		self.feature_mix_layer = ConvLayer(320, 1280, kernel_size=1, stride=1, affine=True, act_func='swish')
 		self.global_avg_pooling = nn.AdaptiveAvgPool2d(1)
 		self.classifier = LinearLayer(1280, num_classes)
+
+		# for quantization
+		self.activation_quantizer_16b = AsymmetricQuantizer(
+			bits_precision=16,
+            range_tracker=AveragedRangeTracker((1, 1, 1, 1))
+		)
+		
+		self.activation_quantizer_8b = AsymmetricQuantizer(
+            bits_precision=8,
+            range_tracker=AveragedRangeTracker((1, 1, 1, 1))
+        )
+
+		self.activation_quantizer_4b = AsymmetricQuantizer(
+            bits_precision=4,
+            range_tracker=AveragedRangeTracker((1, 1, 1, 1))
+        )
 
 		self._initialization()
 
@@ -96,7 +115,7 @@ class Network(nn.Module):
 		stage = nn.ModuleList()
 		for i, block_name in enumerate(self.parsed_arch[stage_name]):
 			self.block_idx += 1
-			op_idx = self.parsed_arch[stage_name][block_name]
+			op_idx = self.parsed_arch[stage_name][block_name][0]
 			primitive = PRIMITIVES[op_idx]
 			mc = self.mc_num_dddict[stage_name][block_name][op_idx]
 			op = OPS[primitive](ics[i], mc, ocs[i], ss[i], affs[i], acts[i])
@@ -109,18 +128,61 @@ class Network(nn.Module):
 		x = self.first_stem(x)
 		x = self.second_stem(x)
 
-		for block in self.stage1:
-			x = block(x)
-		for block in self.stage2:
-			x = block(x)
-		for block in self.stage3:
-			x = block(x)
-		for block in self.stage4:
-			x = block(x)
-		for block in self.stage5:
-			x = block(x)
-		for block in self.stage6:
-			x = block(x)
+		for block_idx, block in enumerate(self.stage1):
+			blk_key = 'block{}'.format(block_idx+1)
+			q = self.parsed_arch['stage1'][blk_key][1]
+			if q == 0:
+				x = self.activation_quantizer_4b(block(x))
+			elif q == 1:
+				x = self.activation_quantizer_8b(block(x))
+			elif q == 2:
+				x = self.activation_quantizer_16b(block(x))
+			else:
+				x = block(x)
+		for block_idx, block in enumerate(self.stage2):
+			blk_key = 'block{}'.format(block_idx+1)
+			q = self.parsed_arch['stage2'][blk_key][1]
+			if q == 0:
+				x = self.activation_quantizer_4b(block(x))
+			elif q == 1:
+				x = self.activation_quantizer_8b(block(x))
+			elif q == 2:
+				x = self.activation_quantizer_16b(block(x))
+			else:
+				x = block(x)
+		for block_idx, block in enumerate(self.stage3):
+			blk_key = 'block{}'.format(block_idx+1)
+			q = self.parsed_arch['stage3'][blk_key][1]
+			if q == 0:
+				x = self.activation_quantizer_4b(block(x))
+			elif q == 1:
+				x = self.activation_quantizer_8b(block(x))
+			elif q == 2:
+				x = self.activation_quantizer_16b(block(x))
+			else:
+				x = block(x)
+		for block_idx, block in enumerate(self.stage4):
+			blk_key = 'block{}'.format(block_idx+1)
+			q = self.parsed_arch['stage4'][blk_key][1]
+			if q == 0:
+				x = self.activation_quantizer_4b(block(x))
+			elif q == 1:
+				x = self.activation_quantizer_8b(block(x))
+			elif q == 2:
+				x = self.activation_quantizer_16b(block(x))
+			else:
+				x = block(x)
+		for block_idx, block in enumerate(self.stage5):
+			blk_key = 'block{}'.format(block_idx+1)
+			q = self.parsed_arch['stage5'][blk_key][1]
+			if q == 0:
+				x = self.activation_quantizer_4b(block(x))
+			elif q == 1:
+				x = self.activation_quantizer_8b(block(x))
+			elif q == 2:
+				x = self.activation_quantizer_16b(block(x))
+			else:
+				x = block(x)
 
 		x = self.feature_mix_layer(x)
 		x = self.global_avg_pooling(x)
@@ -131,88 +193,88 @@ class Network(nn.Module):
 		
 		return x
 
-	def get_lookup_latency(self, x):
-		if not self.lat_lookup:
-			return 0.0
+	# def get_lookup_latency(self, x):
+	# 	if not self.lat_lookup:
+	# 		return 0.0
 
-		lat = self.lat_lookup['base']
-		x = self.first_stem(x)
-		x = self.second_stem(x)
+	# 	lat = self.lat_lookup['base']
+	# 	x = self.first_stem(x)
+	# 	x = self.second_stem(x)
 
-		for block in self.stage1:
-			key = '{}_{}_{}_{}_{}_k{}_s{}_{}'.format(
-												block.name,
-												x.size(-1),
-												block.in_channels,
-												block.se_channels,
-												block.out_channels,
-												block.kernel_size,
-												block.stride,
-												block.act_func)
-			lat += self.lat_lookup[key][block.mid_channels]
-			x = block(x)
-		for block in self.stage2:
-			key = '{}_{}_{}_{}_{}_k{}_s{}_{}'.format(
-												block.name,
-												x.size(-1),
-												block.in_channels,
-												block.se_channels,
-												block.out_channels,
-												block.kernel_size,
-												block.stride,
-												block.act_func)
-			lat += self.lat_lookup[key][block.mid_channels]
-			x = block(x)
-		for block in self.stage3:
-			key = '{}_{}_{}_{}_{}_k{}_s{}_{}'.format(
-												block.name,
-												x.size(-1),
-												block.in_channels,
-												block.se_channels,
-												block.out_channels,
-												block.kernel_size,
-												block.stride,
-												block.act_func)
-			lat += self.lat_lookup[key][block.mid_channels]
-			x = block(x)
-		for block in self.stage4:
-			key = '{}_{}_{}_{}_{}_k{}_s{}_{}'.format(
-												block.name,
-												x.size(-1),
-												block.in_channels,
-												block.se_channels,
-												block.out_channels,
-												block.kernel_size,
-												block.stride,
-												block.act_func)
-			lat += self.lat_lookup[key][block.mid_channels]
-			x = block(x)
-		for block in self.stage5:
-			key = '{}_{}_{}_{}_{}_k{}_s{}_{}'.format(
-												block.name,
-												x.size(-1),
-												block.in_channels,
-												block.se_channels,
-												block.out_channels,
-												block.kernel_size,
-												block.stride,
-												block.act_func)
-			lat += self.lat_lookup[key][block.mid_channels]
-			x = block(x)
-		for block in self.stage6:
-			key = '{}_{}_{}_{}_{}_k{}_s{}_{}'.format(
-												block.name,
-												x.size(-1),
-												block.in_channels,
-												block.se_channels,
-												block.out_channels,
-												block.kernel_size,
-												block.stride,
-												block.act_func)
-			lat += self.lat_lookup[key][block.mid_channels]
-			x = block(x)
+	# 	for block in self.stage1:
+	# 		key = '{}_{}_{}_{}_{}_k{}_s{}_{}'.format(
+	# 											block.name,
+	# 											x.size(-1),
+	# 											block.in_channels,
+	# 											block.se_channels,
+	# 											block.out_channels,
+	# 											block.kernel_size,
+	# 											block.stride,
+	# 											block.act_func)
+	# 		lat += self.lat_lookup[key][block.mid_channels]
+	# 		x = block(x)
+	# 	for block in self.stage2:
+	# 		key = '{}_{}_{}_{}_{}_k{}_s{}_{}'.format(
+	# 											block.name,
+	# 											x.size(-1),
+	# 											block.in_channels,
+	# 											block.se_channels,
+	# 											block.out_channels,
+	# 											block.kernel_size,
+	# 											block.stride,
+	# 											block.act_func)
+	# 		lat += self.lat_lookup[key][block.mid_channels]
+	# 		x = block(x)
+	# 	for block in self.stage3:
+	# 		key = '{}_{}_{}_{}_{}_k{}_s{}_{}'.format(
+	# 											block.name,
+	# 											x.size(-1),
+	# 											block.in_channels,
+	# 											block.se_channels,
+	# 											block.out_channels,
+	# 											block.kernel_size,
+	# 											block.stride,
+	# 											block.act_func)
+	# 		lat += self.lat_lookup[key][block.mid_channels]
+	# 		x = block(x)
+	# 	for block in self.stage4:
+	# 		key = '{}_{}_{}_{}_{}_k{}_s{}_{}'.format(
+	# 											block.name,
+	# 											x.size(-1),
+	# 											block.in_channels,
+	# 											block.se_channels,
+	# 											block.out_channels,
+	# 											block.kernel_size,
+	# 											block.stride,
+	# 											block.act_func)
+	# 		lat += self.lat_lookup[key][block.mid_channels]
+	# 		x = block(x)
+	# 	for block in self.stage5:
+	# 		key = '{}_{}_{}_{}_{}_k{}_s{}_{}'.format(
+	# 											block.name,
+	# 											x.size(-1),
+	# 											block.in_channels,
+	# 											block.se_channels,
+	# 											block.out_channels,
+	# 											block.kernel_size,
+	# 											block.stride,
+	# 											block.act_func)
+	# 		lat += self.lat_lookup[key][block.mid_channels]
+	# 		x = block(x)
+	# 	# for block in self.stage6:
+	# 	# 	key = '{}_{}_{}_{}_{}_k{}_s{}_{}'.format(
+	# 	# 										block.name,
+	# 	# 										x.size(-1),
+	# 	# 										block.in_channels,
+	# 	# 										block.se_channels,
+	# 	# 										block.out_channels,
+	# 	# 										block.kernel_size,
+	# 	# 										block.stride,
+	# 	# 										block.act_func)
+	# 	# 	lat += self.lat_lookup[key][block.mid_channels]
+	# 	# 	x = block(x)
 
-		return lat
+	# 	return lat
 
 	@property
 	def config(self):
@@ -223,8 +285,8 @@ class Network(nn.Module):
 			'stage2': [block.config for block in self.stage2],
 			'stage3': [block.config for block in self.stage3],
 			'stage4': [block.config for block in self.stage4],
+			# 'stage5': [block.config for block in self.stage5],
 			'stage5': [block.config for block in self.stage5],
-			'stage6': [block.config for block in self.stage6],
 			'feature_mix_layer': self.feature_mix_layer.config,
 			'classifier': self.classifier.config,
 		}
@@ -243,7 +305,7 @@ class Network(nn.Module):
 				if m.bias is not None:
 					nn.init.constant_(m.bias, 0)
 
-
+# not used
 class NetworkCfg(nn.Module):
 	def __init__(self, num_classes, model_config, lat_lookup=None, dropout_rate=0.0, drop_connect_rate=0.0):
 		super(NetworkCfg, self).__init__()
@@ -263,7 +325,7 @@ class NetworkCfg(nn.Module):
 		self.stage3 = self._make_stage('stage3')
 		self.stage4 = self._make_stage('stage4')
 		self.stage5 = self._make_stage('stage5')
-		self.stage6 = self._make_stage('stage6')
+		# self.stage6 = self._make_stage('stage6')
 		self.feature_mix_layer = set_layer_from_config(model_config['feature_mix_layer'])
 		self.global_avg_pooling = nn.AdaptiveAvgPool2d(1)
 
@@ -305,8 +367,8 @@ class NetworkCfg(nn.Module):
 			x = block(x)
 		for block in self.stage5:
 			x = block(x)
-		for block in self.stage6:
-			x = block(x)
+		# for block in self.stage6:
+		# 	x = block(x)
 
 		x = self.feature_mix_layer(x)
 		x = self.global_avg_pooling(x)
@@ -317,88 +379,88 @@ class NetworkCfg(nn.Module):
 		
 		return x
 
-	def get_lookup_latency(self, x):
-		if not self.lat_lookup:
-			return 0.0
+	# def get_lookup_latency(self, x):
+	# 	if not self.lat_lookup:
+	# 		return 0.0
 
-		lat = self.lat_lookup['base']
-		x = self.first_stem(x)
-		x = self.second_stem(x)
+	# 	lat = self.lat_lookup['base']
+	# 	x = self.first_stem(x)
+	# 	x = self.second_stem(x)
 
-		for block in self.stage1:
-			key = '{}_{}_{}_{}_{}_k{}_s{}_{}'.format(
-												block.name,
-												x.size(-1),
-												block.in_channels,
-												block.se_channels,
-												block.out_channels,
-												block.kernel_size,
-												block.stride,
-												block.act_func)
-			lat += self.lat_lookup[key][block.mid_channels]
-			x = block(x)
-		for block in self.stage2:
-			key = '{}_{}_{}_{}_{}_k{}_s{}_{}'.format(
-												block.name,
-												x.size(-1),
-												block.in_channels,
-												block.se_channels,
-												block.out_channels,
-												block.kernel_size,
-												block.stride,
-												block.act_func)
-			lat += self.lat_lookup[key][block.mid_channels]
-			x = block(x)
-		for block in self.stage3:
-			key = '{}_{}_{}_{}_{}_k{}_s{}_{}'.format(
-												block.name,
-												x.size(-1),
-												block.in_channels,
-												block.se_channels,
-												block.out_channels,
-												block.kernel_size,
-												block.stride,
-												block.act_func)
-			lat += self.lat_lookup[key][block.mid_channels]
-			x = block(x)
-		for block in self.stage4:
-			key = '{}_{}_{}_{}_{}_k{}_s{}_{}'.format(
-												block.name,
-												x.size(-1),
-												block.in_channels,
-												block.se_channels,
-												block.out_channels,
-												block.kernel_size,
-												block.stride,
-												block.act_func)
-			lat += self.lat_lookup[key][block.mid_channels]
-			x = block(x)
-		for block in self.stage5:
-			key = '{}_{}_{}_{}_{}_k{}_s{}_{}'.format(
-												block.name,
-												x.size(-1),
-												block.in_channels,
-												block.se_channels,
-												block.out_channels,
-												block.kernel_size,
-												block.stride,
-												block.act_func)
-			lat += self.lat_lookup[key][block.mid_channels]
-			x = block(x)
-		for block in self.stage6:
-			key = '{}_{}_{}_{}_{}_k{}_s{}_{}'.format(
-												block.name,
-												x.size(-1),
-												block.in_channels,
-												block.se_channels,
-												block.out_channels,
-												block.kernel_size,
-												block.stride,
-												block.act_func)
-			lat += self.lat_lookup[key][block.mid_channels]
-			x = block(x)
+	# 	for block in self.stage1:
+	# 		key = '{}_{}_{}_{}_{}_k{}_s{}_{}'.format(
+	# 											block.name,
+	# 											x.size(-1),
+	# 											block.in_channels,
+	# 											block.se_channels,
+	# 											block.out_channels,
+	# 											block.kernel_size,
+	# 											block.stride,
+	# 											block.act_func)
+	# 		lat += self.lat_lookup[key][block.mid_channels]
+	# 		x = block(x)
+	# 	for block in self.stage2:
+	# 		key = '{}_{}_{}_{}_{}_k{}_s{}_{}'.format(
+	# 											block.name,
+	# 											x.size(-1),
+	# 											block.in_channels,
+	# 											block.se_channels,
+	# 											block.out_channels,
+	# 											block.kernel_size,
+	# 											block.stride,
+	# 											block.act_func)
+	# 		lat += self.lat_lookup[key][block.mid_channels]
+	# 		x = block(x)
+	# 	for block in self.stage3:
+	# 		key = '{}_{}_{}_{}_{}_k{}_s{}_{}'.format(
+	# 											block.name,
+	# 											x.size(-1),
+	# 											block.in_channels,
+	# 											block.se_channels,
+	# 											block.out_channels,
+	# 											block.kernel_size,
+	# 											block.stride,
+	# 											block.act_func)
+	# 		lat += self.lat_lookup[key][block.mid_channels]
+	# 		x = block(x)
+	# 	for block in self.stage4:
+	# 		key = '{}_{}_{}_{}_{}_k{}_s{}_{}'.format(
+	# 											block.name,
+	# 											x.size(-1),
+	# 											block.in_channels,
+	# 											block.se_channels,
+	# 											block.out_channels,
+	# 											block.kernel_size,
+	# 											block.stride,
+	# 											block.act_func)
+	# 		lat += self.lat_lookup[key][block.mid_channels]
+	# 		x = block(x)
+	# 	for block in self.stage5:
+	# 		key = '{}_{}_{}_{}_{}_k{}_s{}_{}'.format(
+	# 											block.name,
+	# 											x.size(-1),
+	# 											block.in_channels,
+	# 											block.se_channels,
+	# 											block.out_channels,
+	# 											block.kernel_size,
+	# 											block.stride,
+	# 											block.act_func)
+	# 		lat += self.lat_lookup[key][block.mid_channels]
+	# 		x = block(x)
+	# 	# for block in self.stage6:
+	# 	# 	key = '{}_{}_{}_{}_{}_k{}_s{}_{}'.format(
+	# 	# 										block.name,
+	# 	# 										x.size(-1),
+	# 	# 										block.in_channels,
+	# 	# 										block.se_channels,
+	# 	# 										block.out_channels,
+	# 	# 										block.kernel_size,
+	# 	# 										block.stride,
+	# 	# 										block.act_func)
+	# 	# 	lat += self.lat_lookup[key][block.mid_channels]
+	# 	# 	x = block(x)
 
-		return lat
+	# 	return lat
 
 	@property
 	def config(self):
@@ -410,7 +472,7 @@ class NetworkCfg(nn.Module):
 			'stage3': [block.config for block in self.stage3],
 			'stage4': [block.config for block in self.stage4],
 			'stage5': [block.config for block in self.stage5],
-			'stage6': [block.config for block in self.stage6],
+			# 'stage6': [block.config for block in self.stage6],
 			'feature_mix_layer': self.feature_mix_layer.config,
 			'classifier': self.classifier.config,
 		}

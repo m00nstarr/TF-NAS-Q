@@ -13,7 +13,6 @@ class Round(autograd.Function):
     def backward(ctx, grads):
         return grads
 
-
 class Quantizer(nn.Module):
 
     def __init__(self, bits_precision, range_tracker):
@@ -53,7 +52,6 @@ class Quantizer(nn.Module):
         # print(outputs)
         outputs = self.dequantize(outputs)
         return outputs
-
 
 class SignedQuantizer(Quantizer):
 
