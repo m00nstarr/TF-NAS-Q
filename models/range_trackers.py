@@ -21,7 +21,6 @@ class RangeTracker(nn.Module):
         reduce_dims = [dim for dim, size in enumerate(self.shape) if size == 1]
         permute_dims = [*keep_dims, *reduce_dims]
         repermute_dims = [permute_dims.index(dim) for dim, size in enumerate(self.shape)]
-
         inputs = inputs.permute(*permute_dims)
         inputs = inputs.reshape(*inputs.shape[:len(keep_dims)], -1)
 

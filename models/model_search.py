@@ -134,37 +134,37 @@ class MixedOP(nn.Module):
 			op = self.m_ops[idx]
 
 			return op(x), 0
+
 		else:
 			weights = F.gumbel_softmax(self.log_alphas, self.T, hard=False)
 			g_weights = F.softmax(self.gammas, dim = -1)
 
-			out = sum(w*op(x) for w, op in zip(weights, self.m_ops))
-			out_4 = sum(w*self.activation_quantizer_4b(op(x)) for w, op in zip(weights, self.m_ops))
-			out_8 = sum(w*self.activation_quantizer_8b(op(x)) for w, op in zip(weights, self.m_ops))
-			out_16 = sum(w*self.activation_quantizer_16b(op(x)) for w, op in zip(weights, self.m_ops))
-			
-			out_list = []
-			out_list.append(out)
-			out_list.append(out_4)
-			out_list.append(out_8)
-			out_list.append(out_16)
-			
-			#quantized 결과 반영
-			out_ = sum(g_w * out for g_w , out in zip(g_weights, out_list))
-			
 			#peak_mem 또한 반영
 			#4개의 oepration 별 peak memory 체크
 
 			peak_mem = self.get_lookup_memory(x.size(-1))
-		
 			#4개의 OP average peak memory
 			average_peak_mem = sum(w * op_peak_mem for w, op_peak_mem in zip(weights, peak_mem))
 
 			#quantized option added
 			peak_mem_list = [average_peak_mem / 8, average_peak_mem / 4, average_peak_mem / 2, average_peak_mem]
+			#peak_mem_list = [peak_mem / 8, peak_mem / 4, peak_mem / 2, peak_mem]
 			block_average_peak_mem = sum(g_w * active_mem for g_w, active_mem in zip(g_weights, peak_mem_list))
-			
 			diff_peak_mem = abs(block_average_peak_mem - self.target_mem)
+			
+			idx = torch.argmax(g_weights).item()
+
+			if idx == 0:
+				out_ = sum( w * self.activation_quantizer_4b(op(x)) for w, op in zip(weights, self.m_ops))
+			elif idx == 1:
+				out_ = sum( w * self.activation_quantizer_8b(op(x)) for w, op in zip(weights, self.m_ops))
+			elif idx == 2:
+				out_ = sum( w * self.activation_quantizer_16b(op(x)) for w, op in zip(weights, self.m_ops))
+			elif idx == 3:
+				out_ = sum( w * op(x) for w, op in zip(weights, self.m_ops))
+			else:
+				raise NotImplementedError
+
 			return out_, diff_peak_mem
 	
 	def get_lookup_memory(self, size):
@@ -442,10 +442,19 @@ class Network(nn.Module):
 		_arch_parameters = []
 
 		for k, v in self.named_parameters():
-			if k.endswith('log_alphas') or k.endswith('betas') or k.endswith('gammas'):
+			if k.endswith('log_alphas') or k.endswith('betas'):
 				_arch_parameters.append(v)
 
 		return _arch_parameters
+
+	def quantized_parameters(self):
+		_quant_parameters = []
+
+		for k, v in self.named_parameters():
+			if k.endswith('gammas'):
+				_quant_parameters.append(v)
+
+		return _quant_parameters
 
 	def log_alphas_parameters(self):
 		_log_alphas_parameters = []
