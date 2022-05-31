@@ -71,14 +71,13 @@ parser.add_argument('--memory_lookup_path', type=str, default = "./latency_pkl/p
 
 args = parser.parse_args()
 
-# args.save = os.path.join(args.save, 'search-{}-{}'.format(time.strftime("%Y%m%d-%H%M%S"), args.note))
-#args.save = os.path.join(args.save,'search-20220413-162213-'+args.note)
-#args.save = os.path.join(args.save,'search-20220414-141341-'+args.note)
-#args.save = os.path.join(args.save,'search-20220418-111514-'+args.note)
-#args.save = os.path.join(args.save,'search-20220502-194440-'+args.note)
-args.save = os.path.join(args.save,'search-20220504-172320-'+args.note)
-create_exp_dir(args.save, scripts_to_save=None)
-
+#args.save = os.path.join(args.save, 'search-{}-{}'.format(time.strftime("%Y%m%d-%H%M%S"), args.note))
+#args.save = os.path.join(args.save,'search-20220530-120659-'+args.note)
+args.save = os.path.join(args.save,'search-20220531-172826-'+args.note)
+#search-20220530-test-TF-NAS-lam0.1-lat15.0-gpu
+#create_exp_dir(args.save, scripts_to_save=None)
+#search-20220531-172826-TF-NAS-lam0.1-lat15.0-gpu
+#search-20220531-151235-TF-NAS-lam0.1-lat15.0-gpu
 log_format = '%(asctime)s %(message)s'
 logging.basicConfig(stream=sys.stdout, level=logging.INFO,
 	format=log_format, datefmt='%m/%d %I:%M:%S %p')
@@ -120,19 +119,36 @@ def main():
 
 	# get lr list
 	lr_list = []
+	lr_g_list = []
 	optimizer_w = torch.optim.SGD(
 					model.module.weight_parameters(),
 					lr = args.w_lr,
 					momentum = args.w_mom,
 					weight_decay = args.w_wd)
 	scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer_w, float(args.epochs))
+
+	optimizer_g = torch.optim.SGD(
+						model.module.arch_parameters(),
+						lr = args.a_lr,
+						momentum = args.w_mom,
+						weight_decay = args.a_wd)
+
+	scheduler_g = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer_g, float(args.epochs))
+
 	for _ in range(args.epochs):
 		lr = scheduler.get_lr()[0]
 		lr_list.append(lr)
+		lr_g = scheduler_g.get_lr()[0]
+		lr_g_list.append(lr_g)
+		scheduler_g.step()
 		scheduler.step()
+	
 	del model
 	del optimizer_w
 	del scheduler
+	del optimizer_g
+	del scheduler_g
+
 
 	criterion = nn.CrossEntropyLoss()
 	criterion = criterion.cuda()
@@ -180,7 +196,8 @@ def main():
 	# val_queue = torch.utils.data.DataLoader(val_set, batch_size=args.batch_size,
     #                              shuffle=False, pin_memory=True, num_workers=args.workers)
 
-	for epoch in range(55,args.epochs):
+	for epoch in range(1,args.epochs):
+    		
 		
 		mc_num_dddict = get_mc_num_dddict(mc_mask_dddict)
 		model = Network(args.num_classes, mc_num_dddict, target_mem = args.target_memory, memory_lookup = fake_peak_memory_lookup)
@@ -211,6 +228,7 @@ def main():
 		del index
 
 		lr = lr_list[epoch]
+		lr_g = lr_g_list[epoch]
 		optimizer_w = torch.optim.SGD(
 						model.module.weight_parameters(),
 						lr = lr,
@@ -221,16 +239,42 @@ def main():
 						lr = args.a_lr,
 						betas = (args.a_beta1, args.a_beta2),
 						weight_decay = args.a_wd)
-		logging.info('Epoch: %d lr: %e T: %e', epoch, lr, args.T)
-		#logging.info("peak activation memory size = %fMB", count_activation_size(model)[0]/1048576.0)
-		
-		
+		optimizer_g = torch.optim.SGD(
+						model.module.arch_parameters(),
+						lr = lr_g,
+						momentum = args.w_mom,
+						weight_decay = args.a_wd)
+		logging.info('Epoch: %d lr: %e  lr_g : %e T: %e', epoch, lr, lr_g , args.T)
+
+		# op_weights, depth_weights, quantized_weights = get_op_and_depth_weights(model)
+		# parsed_arch = parse_architecture(op_weights, depth_weights, quantized_weights)
+		# mc_num_dddict = get_mc_num_dddict(mc_mask_dddict)
+			
+		# for cur_stage in range(1, 6):
+		# 	stage = 'stage{}'.format(cur_stage)
+		# 	cur_before_mem = get_lookup_peak_memory(parsed_arch, mc_num_dddict, peak_memory_lookup_key_dddict, peak_memory_lookup, stage)
+		# 	cur_after_mem = cur_before_mem
+		# 	logging.info('Before, the current memory of {}: {:.4f}, the target peak memory: {:.4f}'.format(stage, cur_before_mem, args.target_memory))
+		# 	if cur_before_mem > args.target_memory:
+		# 		logging.info('Stage{} Shrinking.....'.format(cur_stage))
+		# 		stages = [stage]
+		# 		mc_num_dddict, cur_after_mem = fit_mc_num_by_peak_memory(parsed_arch, mc_num_dddict, mc_maxnum_dddict, 
+		# 												peak_memory_lookup_key_dddict, peak_memory_lookup, args.target_memory, stages, sign=-1)
+		# 	elif cur_before_mem < args.target_memory:
+		# 		logging.info('Stage{} Expanding.....'.format(cur_stage))
+		# 		stages = [stage]
+		# 		mc_num_dddict, cur_after_mem = fit_mc_num_by_peak_memory(parsed_arch, mc_num_dddict, mc_maxnum_dddict, 
+		# 												peak_memory_lookup_key_dddict, peak_memory_lookup, args.target_memory, stages, sign=1)
+		# 	else:
+		# 		logging.info('Stage{} No Operation...'.format(cur_stage))
+		# 	logging.info('After, the {} current peakmemory: {:.4f}, the target peakmemory: {:.4f}'.format(stage, cur_after_mem, args.target_memory))
+
 		# training
 		epoch_start = time.time()
 		if epoch < 10:
 			train_acc = train_wo_arch(train_queue, model, criterion, optimizer_w)
 		else:
-			train_acc = train_w_arch(train_queue, val_queue, model, criterion, optimizer_w, optimizer_a)
+			train_acc = train_w_arch(train_queue, val_queue, model, criterion, optimizer_w, optimizer_a, optimizer_g)
 			args.T *= args.T_decay
 		
 		# logging arch parameters
@@ -249,7 +293,7 @@ def main():
 		block= [1,2,1,2,3,1,2,3,4,1,2,3,4,1]
 		idx = 0
 		for param in model.module.gammas_parameters():
-			param = F.softmax(param.detach().cpu())
+			param = F.softmax(param.detach().cpu(), dim=-1)
 			param = param.numpy()
 			logging.info('stage: ' + str(stage[idx])+ ' block: ' + str(block[idx])+ ' /' +' '.join(['{:.6f}'.format(p) for p in param]))
 			idx += 1
@@ -374,7 +418,7 @@ def train_wo_arch(train_queue, model, criterion, optimizer_w):
 	return top1.avg
 
 
-def train_w_arch(train_queue, val_queue, model, criterion, optimizer_w, optimizer_a):
+def train_w_arch(train_queue, val_queue, model, criterion, optimizer_w, optimizer_a, optimizer_g):
 	objs_a = AverageMeter()
 	objs_w = AverageMeter()
 	objs_m = AverageMeter()
@@ -426,19 +470,14 @@ def train_w_arch(train_queue, val_queue, model, criterion, optimizer_w, optimize
 				param.requires_grad = False
 			for param in model.module.arch_parameters():
 				param.requires_grad = True
+			for param in model.module.quantized_parameters():
+				param.requires_grad = False
 
 			logits_a, loss_peak_memory = model(x_a, sampling=False)
 			loss_a = criterion(logits_a, target_a)
-			
-			#quantization loss 함수 정의 후 추가하였음
-			#loss_q -> 모든 레이어 별 (peak memory와 target memory의 차이)의 총합
-			#
-			loss_q = loss_peak_memory
-
-			loss = loss_a + loss_q
 
 			optimizer_a.zero_grad()
-			loss.backward()
+			loss_a.backward(retain_graph = True)
 			if args.grad_clip > 0:
 				nn.utils.clip_grad_norm_(model.module.arch_parameters(), args.grad_clip)
 			optimizer_a.step()
@@ -447,15 +486,31 @@ def train_w_arch(train_queue, val_queue, model, criterion, optimizer_w, optimize
 			for log_alphas in model.module.arch_parameters():
 				log_alphas.data = F.log_softmax(log_alphas.detach().data, dim=-1)
 			
+			#quantization loss 함수 정의 후 추가하였음
+			#loss_q -> 모든 레이어 별 (peak memory와 target memory의 차이)의 총합
+			#gamma에 대해 학습하기
+
+			for param in model.module.weight_parameters():
+				param.requires_grad = False
+			for param in model.module.arch_parameters():
+				param.requires_grad = False
+			for param in model.module.quantized_parameters():
+				param.requires_grad = True
+
+			loss_q = loss_peak_memory
+			optimizer_g.zero_grad()
+			loss_q.backward()
+			if args.grad_clip > 0:
+				nn.utils.clip_grad_norm_(model.module.quantized_parameters(), args.grad_clip)
+			optimizer_g.step()
+	
 			n = x_a.size(0)
 			objs_a.update(loss_a.item(), n)
 			objs_m.update(loss_q.item(), n)
-			loss_.update(loss.item(), n)			
-
-
+		
 		if step % args.print_freq == 0:
-			logging.info('TRAIN w_Arch Step: %04d Objs_W: %f R1: %f R5: %f Objs_A: %f loss_q: %f loss_avg: %f' , 
-						  step, objs_w.avg, top1.avg, top5.avg, objs_a.avg, objs_m.avg, loss_.avg)
+			logging.info('TRAIN w_Arch Step: %04d Objs_W: %f R1: %f R5: %f Objs_A: %f loss_q: %f', 
+						  step, objs_w.avg, top1.avg, top5.avg, objs_a.avg, objs_m.avg)
 
 	return top1.avg
 
@@ -489,7 +544,7 @@ def validate(val_queue, model, criterion):
 
 	return top1.avg
 
-
+#stage단위의 peak memory 를 줌..
 def get_lookup_peak_memory(parsed_arch, mc_num_dddict, peak_memory_lookup_key_dddict, peak_memory_lookup, stage):
 	peak_memory = 0.
 	
@@ -510,23 +565,47 @@ def fit_mc_num_by_peak_memory(parsed_arch, mc_num_dddict, mc_maxnum_dddict, peak
 	# sign=1 for expand / sign=-1 for shrink
 	assert sign == -1 or sign == 1
 	stage = stages[0]
+	print(stage)
 	peak_memory = get_lookup_peak_memory(parsed_arch, mc_num_dddict, peak_memory_lookup_key_dddict, peak_memory_lookup, stage)
 
 	parsed_mc_num_list = []
 	parsed_mc_maxnum_list = []
+
 	for stage in stages:
 		for block in parsed_arch[stage]:
 			op_idx = parsed_arch[stage][block][0]
 			parsed_mc_num_list.append(mc_num_dddict[stage][block][op_idx])
 			parsed_mc_maxnum_list.append(mc_maxnum_dddict[stage][block][op_idx])
 
+	# print(parsed_mc_num_list)
+	# print(parsed_mc_maxnum_list)
+
 	min_parsed_mc_num = min(parsed_mc_num_list)
 
 	parsed_mc_ratio_list = [int(round(x/min_parsed_mc_num)) for x in parsed_mc_num_list]
 	parsed_mc_bound_switches = [True] * len(parsed_mc_ratio_list)
 
+	print(parsed_mc_ratio_list)
 	new_mc_num_dddict = copy.deepcopy(mc_num_dddict)
 	new_peak_memory = peak_memory
+
+
+	#while any(parsed_mc_bound_switches) and (sign*new_peak_memory <= sign*target_mem):
+	# max_mc, min_mc 찾기
+	# while (sign*new_peak_memory <= sign*target_mem):
+	# 	mc_num_dddict = copy.deepcopy(new_mc_num_dddict)
+	# 	peak_memory = new_peak_memory
+		
+	# 	for block in parsed_arch[stage]:
+	# 		op_idx = parsed_arch[stage][block][0]
+	# 		new_mc_num = mc_num_dddict[stage][block][op_idx] + sign
+	# 		new_mc_num_dddict[stage][block][op_idx] = new_mc_num
+
+	# 	new_peak_memory = get_lookup_peak_memory(parsed_arch, new_mc_num_dddict, peak_memory_lookup_key_dddict, peak_memory_lookup, stage)
+	# 	#범위 넘어가거나 최소값이 되면 break걸기.
+	# 	if new_mc_num > max_mc or new_mc_num < min_mc :
+    # 		break
+	# 	print(new_peak_memory)
 
 	while any(parsed_mc_bound_switches) and (sign*new_peak_memory <= sign*target_mem):
 		mc_num_dddict = copy.deepcopy(new_mc_num_dddict)

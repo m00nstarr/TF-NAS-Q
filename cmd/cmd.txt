@@ -11,7 +11,7 @@ CUDA_VISIBLE_DEVICES=0 python -W ignore -u train_search.py \
 	--w_lr 0.025 \
 	--w_mom 0.9 \
 	--w_wd 1e-5 \
-	--a_lr 0.01 \
+	--a_lr 0.001 \
 	--a_wd 5e-4 \
 	--grad_clip 5.0 \
 	--T 5.0 \
