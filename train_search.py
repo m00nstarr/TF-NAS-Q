@@ -196,7 +196,7 @@ def main():
 	# val_queue = torch.utils.data.DataLoader(val_set, batch_size=args.batch_size,
     #                              shuffle=False, pin_memory=True, num_workers=args.workers)
 
-	for epoch in range(1,args.epochs):
+	for epoch in range(10,args.epochs):
     		
 		
 		mc_num_dddict = get_mc_num_dddict(mc_mask_dddict)
@@ -240,7 +240,7 @@ def main():
 						betas = (args.a_beta1, args.a_beta2),
 						weight_decay = args.a_wd)
 		optimizer_g = torch.optim.SGD(
-						model.module.arch_parameters(),
+						model.module.quantized_parameters(),
 						lr = lr_g,
 						momentum = args.w_mom,
 						weight_decay = args.a_wd)
@@ -436,6 +436,8 @@ def train_w_arch(train_queue, val_queue, model, criterion, optimizer_w, optimize
 			param.requires_grad = True
 		for param in model.module.arch_parameters():
 			param.requires_grad = False
+		for param in model.module.quantized_parameters():
+			param.requires_grad = False
 		
 		logits_w_gumbel, _ = model(x_w, sampling=True, mode='gumbel')
 		loss_w_gumbel = criterion(logits_w_gumbel, target_w)
@@ -477,7 +479,7 @@ def train_w_arch(train_queue, val_queue, model, criterion, optimizer_w, optimize
 			loss_a = criterion(logits_a, target_a)
 
 			optimizer_a.zero_grad()
-			loss_a.backward(retain_graph = True)
+			loss_a.backward()
 			if args.grad_clip > 0:
 				nn.utils.clip_grad_norm_(model.module.arch_parameters(), args.grad_clip)
 			optimizer_a.step()
@@ -497,13 +499,15 @@ def train_w_arch(train_queue, val_queue, model, criterion, optimizer_w, optimize
 			for param in model.module.quantized_parameters():
 				param.requires_grad = True
 
+			logits_a, loss_peak_memory = model(x_a, sampling=False)
 			loss_q = loss_peak_memory
+
 			optimizer_g.zero_grad()
 			loss_q.backward()
 			if args.grad_clip > 0:
 				nn.utils.clip_grad_norm_(model.module.quantized_parameters(), args.grad_clip)
 			optimizer_g.step()
-	
+
 			n = x_a.size(0)
 			objs_a.update(loss_a.item(), n)
 			objs_m.update(loss_q.item(), n)
