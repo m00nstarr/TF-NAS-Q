@@ -153,15 +153,28 @@ class MixedOP(nn.Module):
 			diff_peak_mem = abs(block_average_peak_mem - self.target_mem)
 			
 			idx = torch.argmax(g_weights).item()
-
+			# print(g_weights)
+			# print(f'pick %d quantization'%idx)
 			if idx == 0:
+				#out = sum( w * op(x) for w, op in zip(weights, self.m_ops))    				
 				out_ = sum( w * self.activation_quantizer_4b(op(x)) for w, op in zip(weights, self.m_ops))
+				# print(f'stage : %d ' %self.stage_num)
+				# print(idx, torch.linalg.norm(out - out_))
 			elif idx == 1:
+				#out = sum( w * op(x) for w, op in zip(weights, self.m_ops))    				
 				out_ = sum( w * self.activation_quantizer_8b(op(x)) for w, op in zip(weights, self.m_ops))
+				
+				# print(f'stage : %d '%self.stage_num)
+				# print(idx, torch.linalg.norm(out - out_))
 			elif idx == 2:
+				#out = sum( w * op(x) for w, op in zip(weights, self.m_ops))    				
 				out_ = sum( w * self.activation_quantizer_16b(op(x)) for w, op in zip(weights, self.m_ops))
-			elif idx == 3:
+				# print(f'stage : %d '%self.stage_num)
+				# print(idx, torch.linalg.norm(out - out_))
+			elif idx == 3:    				
 				out_ = sum( w * op(x) for w, op in zip(weights, self.m_ops))
+				# print(f'stage : %d '%self.stage_num)
+				# print('no quantization')
 			else:
 				raise NotImplementedError
 
@@ -307,8 +320,7 @@ class MixedStage(nn.Module):
 
 		weights = F.softmax(self.betas, dim=-1)
 		out = sum(w*res for w, res in zip(weights, res_list[self.start_res:]))
-		 
-		#out = sum(g_w * res for g_w, res in zip(g_weights, out_list))
+
 
 		if sampling == False:
 			peak_memory = sum(diff_between_peakmem_and_target for diff_between_peakmem_and_target in activation_list)			

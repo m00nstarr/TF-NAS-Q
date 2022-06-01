@@ -196,7 +196,7 @@ def main():
 	# val_queue = torch.utils.data.DataLoader(val_set, batch_size=args.batch_size,
     #                              shuffle=False, pin_memory=True, num_workers=args.workers)
 
-	for epoch in range(10,args.epochs):
+	for epoch in range(13,args.epochs):
     		
 		
 		mc_num_dddict = get_mc_num_dddict(mc_mask_dddict)
@@ -565,66 +565,57 @@ def get_lookup_peak_memory(parsed_arch, mc_num_dddict, peak_memory_lookup_key_dd
 	return peak_memory
 
 
-def fit_mc_num_by_peak_memory(parsed_arch, mc_num_dddict, mc_maxnum_dddict, peak_memory_lookup_key_dddict, peak_memory_lookup, target_mem, stages, sign):
-	# sign=1 for expand / sign=-1 for shrink
+def fit_mc_num_by_peak_memory(parsed_arch, mc_num_dddict, mc_maxnum_dddict, peak_memory_lookup_key_dddict, peak_memory_lookup, target_mem, stage, sign):
+    	# sign=1 for expand / sign=-1 for shrink
 	assert sign == -1 or sign == 1
-	stage = stages[0]
-	print(stage)
 	peak_memory = get_lookup_peak_memory(parsed_arch, mc_num_dddict, peak_memory_lookup_key_dddict, peak_memory_lookup, stage)
 
 	parsed_mc_num_list = []
 	parsed_mc_maxnum_list = []
+	for block in parsed_arch[stage]:
+		op_idx = parsed_arch[stage][block][0]
+		parsed_mc_num_list.append(mc_num_dddict[stage][block][op_idx])
+		parsed_mc_maxnum_list.append(mc_maxnum_dddict[stage][block][op_idx])
 
-	for stage in stages:
-		for block in parsed_arch[stage]:
-			op_idx = parsed_arch[stage][block][0]
-			parsed_mc_num_list.append(mc_num_dddict[stage][block][op_idx])
-			parsed_mc_maxnum_list.append(mc_maxnum_dddict[stage][block][op_idx])
+	# min_parsed_mc_num = min(parsed_mc_num_list)
+	# parsed_mc_ratio_list = [int(round(x/min_parsed_mc_num)) for x in parsed_mc_num_list]
+	# parsed_mc_bound_switches = [True] * len(parsed_mc_ratio_list)
 
-	# print(parsed_mc_num_list)
-	# print(parsed_mc_maxnum_list)
-
-	min_parsed_mc_num = min(parsed_mc_num_list)
-
-	parsed_mc_ratio_list = [int(round(x/min_parsed_mc_num)) for x in parsed_mc_num_list]
-	parsed_mc_bound_switches = [True] * len(parsed_mc_ratio_list)
-
-	print(parsed_mc_ratio_list)
 	new_mc_num_dddict = copy.deepcopy(mc_num_dddict)
 	new_peak_memory = peak_memory
+	parsed_mc_bound_switches = [False]*len(parsed_mc_num_list) # 각 block이 bound 넘었는지 아닌지 저장 (false: bound 안넘음, true: bound 넘음)
 
-
-	#while any(parsed_mc_bound_switches) and (sign*new_peak_memory <= sign*target_mem):
+	print('mc num list:')
+	print(parsed_mc_num_list)
+	print('maxnum list:')
+	print(parsed_mc_maxnum_list)
+	print('bound switches:')
+	print(parsed_mc_bound_switches)
+	print('-------------')
 	# max_mc, min_mc 찾기
-	# while (sign*new_peak_memory <= sign*target_mem):
-	# 	mc_num_dddict = copy.deepcopy(new_mc_num_dddict)
-	# 	peak_memory = new_peak_memory
-		
-	# 	for block in parsed_arch[stage]:
-	# 		op_idx = parsed_arch[stage][block][0]
-	# 		new_mc_num = mc_num_dddict[stage][block][op_idx] + sign
-	# 		new_mc_num_dddict[stage][block][op_idx] = new_mc_num
-
-	# 	new_peak_memory = get_lookup_peak_memory(parsed_arch, new_mc_num_dddict, peak_memory_lookup_key_dddict, peak_memory_lookup, stage)
-	# 	#범위 넘어가거나 최소값이 되면 break걸기.
-	# 	if new_mc_num > max_mc or new_mc_num < min_mc :
-    # 		break
-	# 	print(new_peak_memory)
-
-	while any(parsed_mc_bound_switches) and (sign*new_peak_memory <= sign*target_mem):
+	while (sign*new_peak_memory <= sign*target_mem):
 		mc_num_dddict = copy.deepcopy(new_mc_num_dddict)
 		peak_memory = new_peak_memory
 		list_idx = 0
-		for stage in stages:
-			for block in parsed_arch[stage]:
+		
+		for block in parsed_arch[stage]:
+			# 아직 범위가 안 넘어간 block만 mc 수 값 변경
+			if parsed_mc_bound_switches[list_idx]==False:
 				op_idx = parsed_arch[stage][block][0]
-				new_mc_num = mc_num_dddict[stage][block][op_idx] + sign * parsed_mc_ratio_list[list_idx]
-				# logging.info("new_mc_num : %d" , new_mc_num)
-				new_mc_num, switch = bound_clip(new_mc_num, parsed_mc_maxnum_list[list_idx])
-				# print(new_mc_num)
-				new_mc_num_dddict[stage][block][op_idx] = new_mc_num
-				parsed_mc_bound_switches[list_idx] = switch
-				list_idx += 1
+				max_mc = parsed_mc_maxnum_list[list_idx]
+				min_mc = max_mc // 2
+				new_mc_num = mc_num_dddict[stage][block][op_idx] + sign
+				#범위 넘어가거나 최소값이 되면 parsed_mc_bound_switches 에 false 값 넣기
+				if new_mc_num > max_mc or new_mc_num < min_mc:
+					parsed_mc_bound_switches[list_idx] = True
+					print(new_mc_num, ': exceed the bound!')
+					print(parsed_mc_bound_switches)
+				else:
+					new_mc_num_dddict[stage][block][op_idx] = new_mc_num
+			list_idx += 1
+
+		if all(parsed_mc_bound_switches):
+			break
 
 		new_peak_memory = get_lookup_peak_memory(parsed_arch, new_mc_num_dddict, peak_memory_lookup_key_dddict, peak_memory_lookup, stage)
 
