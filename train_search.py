@@ -257,14 +257,14 @@ def main():
 		# 	logging.info('Before, the current memory of {}: {:.4f}, the target peak memory: {:.4f}'.format(stage, cur_before_mem, args.target_memory))
 		# 	if cur_before_mem > args.target_memory:
 		# 		logging.info('Stage{} Shrinking.....'.format(cur_stage))
-		# 		stages = [stage]
+		# 		#stages = [stage]
 		# 		mc_num_dddict, cur_after_mem = fit_mc_num_by_peak_memory(parsed_arch, mc_num_dddict, mc_maxnum_dddict, 
-		# 												peak_memory_lookup_key_dddict, peak_memory_lookup, args.target_memory, stages, sign=-1)
+		# 												peak_memory_lookup_key_dddict, peak_memory_lookup, args.target_memory, stage, sign=-1)
 		# 	elif cur_before_mem < args.target_memory:
 		# 		logging.info('Stage{} Expanding.....'.format(cur_stage))
-		# 		stages = [stage]
+		# 		#stages = [stage]
 		# 		mc_num_dddict, cur_after_mem = fit_mc_num_by_peak_memory(parsed_arch, mc_num_dddict, mc_maxnum_dddict, 
-		# 												peak_memory_lookup_key_dddict, peak_memory_lookup, args.target_memory, stages, sign=1)
+		# 												peak_memory_lookup_key_dddict, peak_memory_lookup, args.target_memory, stage, sign=1)
 		# 	else:
 		# 		logging.info('Stage{} No Operation...'.format(cur_stage))
 		# 	logging.info('After, the {} current peakmemory: {:.4f}, the target peakmemory: {:.4f}'.format(stage, cur_after_mem, args.target_memory))
@@ -339,17 +339,16 @@ def main():
 				stage = 'stage{}'.format(cur_stage)
 				cur_before_mem = get_lookup_peak_memory(parsed_arch, mc_num_dddict, peak_memory_lookup_key_dddict, peak_memory_lookup, stage)
 				cur_after_mem = cur_before_mem
+				
 				logging.info('Before, the current memory of {}: {:.4f}, the target peak memory: {:.4f}'.format(stage, cur_before_mem, args.target_memory))
 				if cur_before_mem > args.target_memory:
 					logging.info('Stage{} Shrinking.....'.format(cur_stage))
-					stages = [stage]
 					mc_num_dddict, cur_after_mem = fit_mc_num_by_peak_memory(parsed_arch, mc_num_dddict, mc_maxnum_dddict, 
-															peak_memory_lookup_key_dddict, peak_memory_lookup, args.target_memory, stages, sign=-1)
+															peak_memory_lookup_key_dddict, peak_memory_lookup, args.target_memory, stage, sign=-1)
 				elif cur_before_mem < args.target_memory:
 					logging.info('Stage{} Expanding.....'.format(cur_stage))
-					stages = [stage]
 					mc_num_dddict, cur_after_mem = fit_mc_num_by_peak_memory(parsed_arch, mc_num_dddict, mc_maxnum_dddict, 
-															peak_memory_lookup_key_dddict, peak_memory_lookup, args.target_memory, stages, sign=1)
+															peak_memory_lookup_key_dddict, peak_memory_lookup, args.target_memory, stage, sign=1)
 				else:
 					logging.info('Stage{} No Operation...'.format(cur_stage))
 				logging.info('After, the {} current peakmemory: {:.4f}, the target peakmemory: {:.4f}'.format(stage, cur_after_mem, args.target_memory))
@@ -551,7 +550,7 @@ def validate(val_queue, model, criterion):
 #stage단위의 peak memory 를 줌..
 def get_lookup_peak_memory(parsed_arch, mc_num_dddict, peak_memory_lookup_key_dddict, peak_memory_lookup, stage):
 	peak_memory = 0.
-	
+
 	for block in parsed_arch[stage]:
 		op_idx = parsed_arch[stage][block][0]
 		quant_idx = parsed_arch[stage][block][1]
@@ -566,7 +565,8 @@ def get_lookup_peak_memory(parsed_arch, mc_num_dddict, peak_memory_lookup_key_dd
 
 
 def fit_mc_num_by_peak_memory(parsed_arch, mc_num_dddict, mc_maxnum_dddict, peak_memory_lookup_key_dddict, peak_memory_lookup, target_mem, stage, sign):
-    	# sign=1 for expand / sign=-1 for shrink
+    
+	# sign=1 for expand / sign=-1 for shrink
 	assert sign == -1 or sign == 1
 	peak_memory = get_lookup_peak_memory(parsed_arch, mc_num_dddict, peak_memory_lookup_key_dddict, peak_memory_lookup, stage)
 
