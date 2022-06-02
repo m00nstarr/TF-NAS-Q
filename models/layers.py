@@ -477,71 +477,6 @@ class MBInvertedResBlock(BasicUnit):
 		# for memory profiling
 		# self.act_byte = act_byte
 
-		# w,a quantizer for conv_2 module list
-		self.activation_quantizer_list = [
-			AsymmetricQuantizer(
-            bits_precision=4,
-            range_tracker=AveragedRangeTracker((1, 1, 1, 1))
-        	),
-			AsymmetricQuantizer(
-            bits_precision=8,
-            range_tracker=AveragedRangeTracker((1, 1, 1, 1))
-        	),
-			AsymmetricQuantizer(
-            bits_precision=16,
-            range_tracker=AveragedRangeTracker((1, 1, 1, 1))
-        	),
-			None
-		]
-
-		self.i_weight_quantizer_list = [
-			AsymmetricQuantizer(
-				bits_precision=4,
-				range_tracker=GlobalRangeTracker((1, mid_channels, 1, 1))
-			),
-			AsymmetricQuantizer(
-				bits_precision=8,
-				range_tracker=GlobalRangeTracker((1, mid_channels, 1, 1))
-			),
-			AsymmetricQuantizer(
-				bits_precision=16,
-				range_tracker=GlobalRangeTracker((1, mid_channels, 1, 1))
-			),
-			None
-		]
-
-		self.pw_weight_quantizer_list = [
-			AsymmetricQuantizer(
-            bits_precision=4,
-            range_tracker=GlobalRangeTracker((1, mid_channels, 1, 1))
-        	),
-			AsymmetricQuantizer(
-            bits_precision=8,
-            range_tracker=GlobalRangeTracker((1, mid_channels, 1, 1))
-        	),
-			AsymmetricQuantizer(
-            bits_precision=16,
-            range_tracker=GlobalRangeTracker((1, mid_channels, 1, 1))
-        	),
-			None
-		]
-		
-		self.dw_weight_quantizer_list = [
-			AsymmetricQuantizer(
-            bits_precision=4,
-            range_tracker=GlobalRangeTracker((1, out_channels, 1, 1))
-        	),
-			AsymmetricQuantizer(
-            bits_precision=8,
-            range_tracker=GlobalRangeTracker((1, out_channels, 1, 1))
-        	),
-			AsymmetricQuantizer(
-            bits_precision=16,
-            range_tracker=GlobalRangeTracker((1, out_channels, 1, 1))
-        	),
-			None
-		]
-
 		# inverted bottleneck
 		if mid_channels > in_channels:
 			inverted_bottleneck = OrderedDict([
@@ -619,10 +554,28 @@ class MBInvertedResBlock(BasicUnit):
 		self.has_residual = (in_channels == out_channels) and (stride == 1)
 
 	def forward(self, x, q_idx):
-		activation_quantizer = self.activation_quantizer_list[q_idx]
-		i_weight_quantizer = self.i_weight_quantizer_list[q_idx]
-		dw_weight_quantizer = self.dw_weight_quantizer_list[q_idx]
-		pw_weight_quantizer = self.pw_weight_quantizer_list[q_idx]
+		activation_quantizer = None
+		i_weight_quantizer = None
+		dw_weight_quantizer = None
+		pw_weight_quantizer = None
+		if q_idx != 3:
+			q_bits_precision = 2*(q_idx+2)
+			activation_quantizer = AsymmetricQuantizer(
+				bits_precision=q_bits_precision,
+				range_tracker=AveragedRangeTracker((1, 1, 1, 1))
+        	)
+			i_weight_quantizer = AsymmetricQuantizer(
+				bits_precision=q_bits_precision,
+				range_tracker=GlobalRangeTracker((1, self.mid_channels, 1, 1))
+			)
+			dw_weight_quantizer = AsymmetricQuantizer(
+				bits_precision=q_bits_precision,
+				range_tracker=GlobalRangeTracker((1, self.mid_channels, 1, 1))
+			)
+			pw_weight_quantizer = AsymmetricQuantizer(
+				bits_precision=q_bits_precision,
+				range_tracker=GlobalRangeTracker((1, self.out_channels, 1, 1))
+        	)
 
 		# quantize the input
 		if q_idx != 3:
