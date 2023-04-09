@@ -71,21 +71,7 @@ parser.add_argument('--memory_lookup_path', type=str, default = "./latency_pkl/p
 
 args = parser.parse_args()
 
-<<<<<<< HEAD
-#args.save = os.path.join(args.save, 'search-{}-{}'.format(time.strftime("%Y%m%d-%H%M%S"), args.note))
-#args.save = os.path.join(args.save,'search-20220530-120659-'+args.note)
-args.save = os.path.join(args.save,'search-20220531-172826-'+args.note)
-#search-20220530-test-TF-NAS-lam0.1-lat15.0-gpu
-#create_exp_dir(args.save, scripts_to_save=None)
-=======
 args.save = os.path.join(args.save, 'search-{}-{}'.format(time.strftime("%Y%m%d-%H%M%S"), args.note))
-#args.save = os.path.join(args.save,'search-20220530-120659-'+args.note)
-# args.save = os.path.join(args.save,'search-20220531-172826-'+args.note)
-#search-20220530-test-TF-NAS-lam0.1-lat15.0-gpu
-create_exp_dir(args.save, scripts_to_save=None)
->>>>>>> cd5ee180156a625ec89c573b0c11872e3c551875
-#search-20220531-172826-TF-NAS-lam0.1-lat15.0-gpu
-#search-20220531-151235-TF-NAS-lam0.1-lat15.0-gpu
 log_format = '%(asctime)s %(message)s'
 logging.basicConfig(stream=sys.stdout, level=logging.INFO,
 	format=log_format, datefmt='%m/%d %I:%M:%S %p')
@@ -113,11 +99,7 @@ def main():
 		peak_memory_lookup = pickle.load(f)
 
 	mc_maxnum_dddict = get_mc_num_dddict(mc_mask_dddict, is_max=True)
-<<<<<<< HEAD
 	model = Network(args.num_classes, mc_maxnum_dddict, target_mem = args.target_memory, memory_lookup = fake_peak_memory_lookup)
-=======
-	model = Network(args.num_classes, mc_maxnum_dddict, target_mem = args.target_memory, memory_lookup = peak_memory_lookup)
->>>>>>> cd5ee180156a625ec89c573b0c11872e3c551875
 	model = torch.nn.DataParallel(model).cuda()
 	model.module.set_temperature(args.T)
 	logging.info("param size = %fMB", count_parameters_in_MB(model))
@@ -179,13 +161,8 @@ def main():
 		])
 
 	val_transform = transforms.Compose([
-<<<<<<< HEAD
 			transforms.Resize(224),
 			transforms.CenterCrop(32),
-=======
-			transforms.Resize(256),
-			transforms.CenterCrop(224),
->>>>>>> cd5ee180156a625ec89c573b0c11872e3c551875
 			transforms.ToTensor(),
 			normalize,
 		])
@@ -213,19 +190,11 @@ def main():
 	# val_queue = torch.utils.data.DataLoader(val_set, batch_size=args.batch_size,
     #                              shuffle=False, pin_memory=True, num_workers=args.workers)
 
-<<<<<<< HEAD
 	for epoch in range(10,args.epochs):
     		
 		
 		mc_num_dddict = get_mc_num_dddict(mc_mask_dddict)
 		model = Network(args.num_classes, mc_num_dddict, target_mem = args.target_memory, memory_lookup = fake_peak_memory_lookup)
-=======
-	for epoch in range(0,args.epochs):
-    		
-		
-		mc_num_dddict = get_mc_num_dddict(mc_mask_dddict)
-		model = Network(args.num_classes, mc_num_dddict, target_mem = args.target_memory, memory_lookup = peak_memory_lookup)
->>>>>>> cd5ee180156a625ec89c573b0c11872e3c551875
 		model = torch.nn.DataParallel(model).cuda()
 		model.module.set_temperature(args.T)
 
@@ -296,12 +265,8 @@ def main():
 
 		# training
 		epoch_start = time.time()
-<<<<<<< HEAD
 		if epoch < 10:
-=======
-		if epoch < 0:
->>>>>>> cd5ee180156a625ec89c573b0c11872e3c551875
-			train_acc = train_wo_arch(train_queue, model, criterion, optimizer_w)
+    			train_acc = train_wo_arch(train_queue, model, criterion, optimizer_w)
 		else:
 			train_acc = train_w_arch(train_queue, val_queue, model, criterion, optimizer_w, optimizer_a, optimizer_g)
 			args.T *= args.T_decay
@@ -371,7 +336,6 @@ def main():
 				logging.info('Before, the current memory of {}: {:.4f}, the target peak memory: {:.4f}'.format(stage, cur_before_mem, args.target_memory))
 				if cur_before_mem > args.target_memory:
 					logging.info('Stage{} Shrinking.....'.format(cur_stage))
-<<<<<<< HEAD
 					stages = [stage]
 					mc_num_dddict, cur_after_mem = fit_mc_num_by_peak_memory(parsed_arch, mc_num_dddict, mc_maxnum_dddict, 
 															peak_memory_lookup_key_dddict, peak_memory_lookup, args.target_memory, stages, sign=-1)
@@ -380,14 +344,6 @@ def main():
 					stages = [stage]
 					mc_num_dddict, cur_after_mem = fit_mc_num_by_peak_memory(parsed_arch, mc_num_dddict, mc_maxnum_dddict, 
 															peak_memory_lookup_key_dddict, peak_memory_lookup, args.target_memory, stages, sign=1)
-=======
-					mc_num_dddict, cur_after_mem = fit_mc_num_by_peak_memory(parsed_arch, mc_num_dddict, mc_maxnum_dddict, 
-															peak_memory_lookup_key_dddict, peak_memory_lookup, args.target_memory, stage, sign=-1)
-				elif cur_before_mem < args.target_memory:
-					logging.info('Stage{} Expanding.....'.format(cur_stage))
-					mc_num_dddict, cur_after_mem = fit_mc_num_by_peak_memory(parsed_arch, mc_num_dddict, mc_maxnum_dddict, 
-															peak_memory_lookup_key_dddict, peak_memory_lookup, args.target_memory, stage, sign=1)
->>>>>>> cd5ee180156a625ec89c573b0c11872e3c551875
 				else:
 					logging.info('Stage{} No Operation...'.format(cur_stage))
 				logging.info('After, the {} current peakmemory: {:.4f}, the target peakmemory: {:.4f}'.format(stage, cur_after_mem, args.target_memory))
@@ -603,22 +559,15 @@ def get_lookup_peak_memory(parsed_arch, mc_num_dddict, peak_memory_lookup_key_dd
 	return peak_memory
 
 
-<<<<<<< HEAD
 def fit_mc_num_by_peak_memory(parsed_arch, mc_num_dddict, mc_maxnum_dddict, peak_memory_lookup_key_dddict, peak_memory_lookup, target_mem, stages, sign):
-	# sign=1 for expand / sign=-1 for shrink
+    	# sign=1 for expand / sign=-1 for shrink
 	assert sign == -1 or sign == 1
 	stage = stages[0]
 	print(stage)
-=======
-def fit_mc_num_by_peak_memory(parsed_arch, mc_num_dddict, mc_maxnum_dddict, peak_memory_lookup_key_dddict, peak_memory_lookup, target_mem, stage, sign):
-	# sign=1 for expand / sign=-1 for shrink
-	assert sign == -1 or sign == 1
->>>>>>> cd5ee180156a625ec89c573b0c11872e3c551875
 	peak_memory = get_lookup_peak_memory(parsed_arch, mc_num_dddict, peak_memory_lookup_key_dddict, peak_memory_lookup, stage)
 
 	parsed_mc_num_list = []
 	parsed_mc_maxnum_list = []
-<<<<<<< HEAD
 
 	for stage in stages:
 		for block in parsed_arch[stage]:
@@ -626,8 +575,6 @@ def fit_mc_num_by_peak_memory(parsed_arch, mc_num_dddict, mc_maxnum_dddict, peak
 			parsed_mc_num_list.append(mc_num_dddict[stage][block][op_idx])
 			parsed_mc_maxnum_list.append(mc_maxnum_dddict[stage][block][op_idx])
 
-	# print(parsed_mc_num_list)
-	# print(parsed_mc_maxnum_list)
 
 	min_parsed_mc_num = min(parsed_mc_num_list)
 
@@ -672,74 +619,6 @@ def fit_mc_num_by_peak_memory(parsed_arch, mc_num_dddict, mc_maxnum_dddict, peak
 				list_idx += 1
 
 		new_peak_memory = get_lookup_peak_memory(parsed_arch, new_mc_num_dddict, peak_memory_lookup_key_dddict, peak_memory_lookup, stage)
-=======
-	for block in parsed_arch[stage]:
-		op_idx = parsed_arch[stage][block][0]
-		parsed_mc_num_list.append(mc_num_dddict[stage][block][op_idx])
-		parsed_mc_maxnum_list.append(mc_maxnum_dddict[stage][block][op_idx])
-
-	# min_parsed_mc_num = min(parsed_mc_num_list)
-	# parsed_mc_ratio_list = [int(round(x/min_parsed_mc_num)) for x in parsed_mc_num_list]
-	# parsed_mc_bound_switches = [True] * len(parsed_mc_ratio_list)
-
-	new_mc_num_dddict = copy.deepcopy(mc_num_dddict)
-	new_peak_memory = peak_memory
-	parsed_mc_bound_switches = [False]*len(parsed_mc_num_list) # 각 block이 bound 넘었는지 아닌지 저장 (false: bound 안넘음, true: bound 넘음)
-
-	print('mc num list:')
-	print(parsed_mc_num_list)
-	print('maxnum list:')
-	print(parsed_mc_maxnum_list)
-	print('bound switches:')
-	print(parsed_mc_bound_switches)
-	print('-------------')
-	# max_mc, min_mc 찾기
-	while (sign*new_peak_memory <= sign*target_mem):
-		mc_num_dddict = copy.deepcopy(new_mc_num_dddict)
-		peak_memory = new_peak_memory
-		list_idx = 0
-		
-		for block in parsed_arch[stage]:
-			# 아직 범위가 안 넘어간 block만 mc 수 값 변경
-			if parsed_mc_bound_switches[list_idx]==False:
-				op_idx = parsed_arch[stage][block][0]
-				max_mc = parsed_mc_maxnum_list[list_idx]
-				min_mc = max_mc // 2
-				new_mc_num = mc_num_dddict[stage][block][op_idx] + sign
-				#범위 넘어가거나 최소값이 되면 parsed_mc_bound_switches 에 false 값 넣기
-				if new_mc_num > max_mc or new_mc_num < min_mc:
-					parsed_mc_bound_switches[list_idx] = True
-					print(new_mc_num, ': exceed the bound!')
-					print(parsed_mc_bound_switches)
-				else:
-					new_mc_num_dddict[stage][block][op_idx] = new_mc_num
-			list_idx += 1
-
-		if all(parsed_mc_bound_switches):
-			break
-
-		new_peak_memory = get_lookup_peak_memory(parsed_arch, new_mc_num_dddict, peak_memory_lookup_key_dddict, peak_memory_lookup, stage)
-		# print('**********')
-		# print(sign*new_peak_memory)
-		# print(sign*target_mem)
-		# print('**********')
-
-	# while any(parsed_mc_bound_switches) and (sign*new_peak_memory <= sign*target_mem):
-	# 	mc_num_dddict = copy.deepcopy(new_mc_num_dddict)
-	# 	peak_memory = new_peak_memory
-	# 	list_idx = 0
-	# 	for block in parsed_arch[stage]:
-	# 		op_idx = parsed_arch[stage][block][0]
-	# 		new_mc_num = mc_num_dddict[stage][block][op_idx] + sign * parsed_mc_ratio_list[list_idx]
-	# 		# logging.info("new_mc_num : %d" , new_mc_num)
-	# 		new_mc_num, switch = bound_clip(new_mc_num, parsed_mc_maxnum_list[list_idx])
-	# 		# print(new_mc_num)
-	# 		new_mc_num_dddict[stage][block][op_idx] = new_mc_num
-	# 		parsed_mc_bound_switches[list_idx] = switch
-	# 		list_idx += 1
-
-	# 	new_peak_memory = get_lookup_peak_memory(parsed_arch, new_mc_num_dddict, peak_memory_lookup_key_dddict, peak_memory_lookup, stage)
->>>>>>> cd5ee180156a625ec89c573b0c11872e3c551875
 
 	if sign == -1:
 		mc_num_dddict = copy.deepcopy(new_mc_num_dddict)
