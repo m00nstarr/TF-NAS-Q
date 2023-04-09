@@ -5,6 +5,12 @@ import torch.nn.functional as F
 from collections import OrderedDict
 import logging
 import os
+<<<<<<< HEAD
+=======
+
+from .quantizers import SymmetricQuantizer, AsymmetricQuantizer
+from .range_trackers import *
+>>>>>>> cd5ee180156a625ec89c573b0c11872e3c551875
 #save = './checkpoints/search-20220421-163232-TF-NAS-lam0.1-lat15.0-gpu'
 
 # log_format = '%(asctime)s %(message)s'
@@ -455,8 +461,12 @@ class MBInvertedResBlock(BasicUnit):
 			use_bn=True,
 			affine=True,
 			act_func='relu6',
+<<<<<<< HEAD
 			act_byte=32,
 			peak_memorys=None):
+=======
+		):
+>>>>>>> cd5ee180156a625ec89c573b0c11872e3c551875
 		super(MBInvertedResBlock, self).__init__()
 
 		self.in_channels = in_channels
@@ -473,9 +483,13 @@ class MBInvertedResBlock(BasicUnit):
 		self.act_func = act_func
 		self.drop_connect_rate = 0.0
 		# for memory profiling
+<<<<<<< HEAD
 		self.act_byte = act_byte
 		self.peakmemory = 0.0
 		self.activation_memory_list = []
+=======
+		# self.act_byte = act_byte
+>>>>>>> cd5ee180156a625ec89c573b0c11872e3c551875
 
 		# inverted bottleneck
 		if mid_channels > in_channels:
@@ -485,14 +499,24 @@ class MBInvertedResBlock(BasicUnit):
 			if use_bn:
 				inverted_bottleneck['bn'] = nn.BatchNorm2d(mid_channels, affine=affine, track_running_stats=affine)
 			if act_func == 'relu':
+<<<<<<< HEAD
 				inverted_bottleneck['act'] = nn.ReLU(inplace=True)
 			elif act_func == 'relu6':
 				inverted_bottleneck['act'] = nn.ReLU6(inplace=True)
+=======
+				inverted_bottleneck['act'] = nn.ReLU(inplace=False)
+			elif act_func == 'relu6':
+				inverted_bottleneck['act'] = nn.ReLU6(inplace=False)
+>>>>>>> cd5ee180156a625ec89c573b0c11872e3c551875
 			elif act_func == 'swish':
 				inverted_bottleneck['act'] = Swish(inplace=True)
 			elif act_func == 'h-swish':
 				inverted_bottleneck['act'] = HardSwish(inplace=True)
+<<<<<<< HEAD
 			self.inverted_bottleneck = nn.Sequential(inverted_bottleneck)
+=======
+			self.inverted_bottleneck = nn.ModuleDict(inverted_bottleneck)
+>>>>>>> cd5ee180156a625ec89c573b0c11872e3c551875
 		else:
 			self.inverted_bottleneck = None
 			self.mid_channels = in_channels
@@ -514,14 +538,24 @@ class MBInvertedResBlock(BasicUnit):
 		if use_bn:
 			depth_conv['bn'] = nn.BatchNorm2d(mid_channels, affine=affine, track_running_stats=affine)
 		if act_func == 'relu':
+<<<<<<< HEAD
 			depth_conv['act'] = nn.ReLU(inplace=True)
 		elif act_func == 'relu6':
 			depth_conv['act'] = nn.ReLU6(inplace=True)
+=======
+			depth_conv['act'] = nn.ReLU(inplace=False)
+		elif act_func == 'relu6':
+			depth_conv['act'] = nn.ReLU6(inplace=False)
+>>>>>>> cd5ee180156a625ec89c573b0c11872e3c551875
 		elif act_func == 'swish':
 			depth_conv['act'] = Swish(inplace=True)
 		elif act_func == 'h-swish':
 			depth_conv['act'] = HardSwish(inplace=True)
+<<<<<<< HEAD
 		self.depth_conv = nn.Sequential(depth_conv)
+=======
+		self.depth_conv = nn.ModuleDict(depth_conv)
+>>>>>>> cd5ee180156a625ec89c573b0c11872e3c551875
 
 		# se model
 		if se_channels > 0:
@@ -529,9 +563,15 @@ class MBInvertedResBlock(BasicUnit):
 					('conv_reduce', nn.Conv2d(mid_channels, se_channels, 1, 1, 0, groups=groups, bias=True)),
 				])
 			if act_func == 'relu':
+<<<<<<< HEAD
 				squeeze_excite['act'] = nn.ReLU(inplace=True)
 			elif act_func == 'relu6':
 				squeeze_excite['act'] = nn.ReLU6(inplace=True)
+=======
+				squeeze_excite['act'] = nn.ReLU(inplace=False)
+			elif act_func == 'relu6':
+				squeeze_excite['act'] = nn.ReLU6(inplace=False)
+>>>>>>> cd5ee180156a625ec89c573b0c11872e3c551875
 			elif act_func == 'swish':
 				squeeze_excite['act'] = Swish(inplace=True)
 			elif act_func == 'h-swish':
@@ -548,11 +588,16 @@ class MBInvertedResBlock(BasicUnit):
 			])
 		if use_bn:
 			point_linear['bn'] = nn.BatchNorm2d(out_channels, affine=affine, track_running_stats=affine)
+<<<<<<< HEAD
 		self.point_linear = nn.Sequential(point_linear)
+=======
+		self.point_linear = nn.ModuleDict(point_linear)
+>>>>>>> cd5ee180156a625ec89c573b0c11872e3c551875
 
 		# residual flag
 		self.has_residual = (in_channels == out_channels) and (stride == 1)
 
+<<<<<<< HEAD
 	def get_activation_memory(self):
 		return self.activation_memory_list
 
@@ -577,15 +622,89 @@ class MBInvertedResBlock(BasicUnit):
 		peak_memory_tensor = torch.Tensor([x_orig[0].numel()*self.act_byte + x.numel()*self.act_byte // self.mid_channels])
 		self.activation_memory_list.append(peak_memory_tensor[0].item()/(1048576*8))
 		peak_memory = max(peak_memory, peak_memory_tensor[0].item()/(1048576*8))
+=======
+	def forward(self, x, q_idx):
+		activation_quantizer = None
+		i_weight_quantizer = None
+		dw_weight_quantizer = None
+		pw_weight_quantizer = None
+		if q_idx != 3:
+			q_bits_precision = 2*(q_idx+2)
+			activation_quantizer = AsymmetricQuantizer(
+				bits_precision=q_bits_precision,
+				range_tracker=AveragedRangeTracker((1, 1, 1, 1))
+        	)
+			i_weight_quantizer = AsymmetricQuantizer(
+				bits_precision=q_bits_precision,
+				range_tracker=GlobalRangeTracker((1, self.mid_channels, 1, 1))
+			)
+			dw_weight_quantizer = AsymmetricQuantizer(
+				bits_precision=q_bits_precision,
+				range_tracker=GlobalRangeTracker((1, self.mid_channels, 1, 1))
+			)
+			pw_weight_quantizer = AsymmetricQuantizer(
+				bits_precision=q_bits_precision,
+				range_tracker=GlobalRangeTracker((1, self.out_channels, 1, 1))
+        	)
+
+		# quantize the input
+		if q_idx != 3:
+			x = activation_quantizer(x)
+
+		res = x
+		
+		if self.inverted_bottleneck is not None:
+			for name, module in self.inverted_bottleneck.items():
+				# quantize weights
+				if q_idx != 3 and name=='conv':
+					weight = i_weight_quantizer(module.weight)
+					module.weight = torch.nn.Parameter(weight)
+				x = module(x)
+				# quantize output(activation)
+				if q_idx != 3 and name=='conv':
+					x = activation_quantizer(x)
+
+			if self.has_shuffle and self.groups > 1:
+				x = channel_shuffle(x, self.groups)
+
+		for name, module in self.depth_conv.items():
+			# print(name, module)
+			# quantize weights
+			if q_idx != 3 and name=='conv':
+				# if self.act_byte == 4:
+				# 	print(module.weight.view(-1))
+				weight = dw_weight_quantizer(module.weight)
+				module.weight = torch.nn.Parameter(weight)
+				# if self.act_byte == 4:
+				# 	print(module.weight.view(-1))
+				# 	print('---------------------')
+			x = module(x)
+			# quantize output(activation)
+			if q_idx != 3 and name=='conv':
+				x = activation_quantizer(x)
+>>>>>>> cd5ee180156a625ec89c573b0c11872e3c551875
 		if self.squeeze_excite is not None:
 			x_se = F.adaptive_avg_pool2d(x, 1)
 			x = x * torch.sigmoid(self.squeeze_excite(x_se))
 		
+<<<<<<< HEAD
 		x_orig = x
 		x = self.point_linear(x)
 		peak_memory_tensor = torch.Tensor([x_orig[0].numel()*self.act_byte + x.numel()*self.act_byte // self.groups])
 		self.activation_memory_list.append(peak_memory_tensor[0].item()/(1048576*8))
 		peak_memory = max(peak_memory, peak_memory_tensor[0].item()/(1048576*8))
+=======
+		for name, module in self.point_linear.items():
+			# quantize weights
+			if q_idx != 3 and name=='conv':
+				weight = pw_weight_quantizer(module.weight)
+				module.weight = torch.nn.Parameter(weight)
+			x = module(x)
+			# quantize output(activation)
+			if q_idx != 3 and name=='conv':
+				x = activation_quantizer(x)
+		
+>>>>>>> cd5ee180156a625ec89c573b0c11872e3c551875
 		if self.has_shuffle and self.groups > 1:
 			x = channel_shuffle(x, self.groups)
 
@@ -594,8 +713,11 @@ class MBInvertedResBlock(BasicUnit):
 				x = drop_connect(x, self.training, self.drop_connect_rate)
 			x += res
 		
+<<<<<<< HEAD
 		self.peakmemory = peak_memory
 
+=======
+>>>>>>> cd5ee180156a625ec89c573b0c11872e3c551875
 		return x
 
 	@property
