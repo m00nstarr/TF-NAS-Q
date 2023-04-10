@@ -71,6 +71,7 @@ parser.add_argument('--memory_lookup_path', type=str, default = "./latency_pkl/p
 
 args = parser.parse_args()
 
+<<<<<<< HEAD
 #args.save = os.path.join(args.save, 'search-{}-{}'.format(time.strftime("%Y%m%d-%H%M%S"), args.note))
 #args.save = os.path.join(args.save,'search-20220530-120659-'+args.note)
 args.save = os.path.join(args.save,'search-20220531-172826-'+args.note)
@@ -78,6 +79,9 @@ args.save = os.path.join(args.save,'search-20220531-172826-'+args.note)
 #create_exp_dir(args.save, scripts_to_save=None)
 #search-20220531-172826-TF-NAS-lam0.1-lat15.0-gpu
 #search-20220531-151235-TF-NAS-lam0.1-lat15.0-gpu
+=======
+args.save = os.path.join(args.save, 'search-{}-{}'.format(time.strftime("%Y%m%d-%H%M%S"), args.note))
+>>>>>>> origin/main
 log_format = '%(asctime)s %(message)s'
 logging.basicConfig(stream=sys.stdout, level=logging.INFO,
 	format=log_format, datefmt='%m/%d %I:%M:%S %p')
@@ -105,7 +109,11 @@ def main():
 		peak_memory_lookup = pickle.load(f)
 
 	mc_maxnum_dddict = get_mc_num_dddict(mc_mask_dddict, is_max=True)
+<<<<<<< HEAD
 	model = Network(args.num_classes, mc_maxnum_dddict, target_mem = args.target_memory, memory_lookup = peak_memory_lookup)
+=======
+	model = Network(args.num_classes, mc_maxnum_dddict, target_mem = args.target_memory, memory_lookup = fake_peak_memory_lookup)
+>>>>>>> origin/main
 	model = torch.nn.DataParallel(model).cuda()
 	model.module.set_temperature(args.T)
 	logging.info("param size = %fMB", count_parameters_in_MB(model))
@@ -200,7 +208,11 @@ def main():
     		
 		
 		mc_num_dddict = get_mc_num_dddict(mc_mask_dddict)
+<<<<<<< HEAD
 		model = Network(args.num_classes, mc_num_dddict, target_mem = args.target_memory, memory_lookup = peak_memory_lookup)
+=======
+		model = Network(args.num_classes, mc_num_dddict, target_mem = args.target_memory, memory_lookup = fake_peak_memory_lookup)
+>>>>>>> origin/main
 		model = torch.nn.DataParallel(model).cuda()
 		model.module.set_temperature(args.T)
 
@@ -273,10 +285,14 @@ def main():
 		epoch_start = time.time()
 <<<<<<< HEAD
 		if epoch < 10:
+<<<<<<< HEAD
 =======
 		if epoch < 0:
 >>>>>>> cd5ee18... loss grad true
 			train_acc = train_wo_arch(train_queue, model, criterion, optimizer_w)
+=======
+    			train_acc = train_wo_arch(train_queue, model, criterion, optimizer_w)
+>>>>>>> origin/main
 		else:
 			train_acc = train_w_arch(train_queue, val_queue, model, criterion, optimizer_w, optimizer_a, optimizer_g)
 			args.T *= args.T_decay
@@ -570,7 +586,11 @@ def get_lookup_peak_memory(parsed_arch, mc_num_dddict, peak_memory_lookup_key_dd
 
 
 def fit_mc_num_by_peak_memory(parsed_arch, mc_num_dddict, mc_maxnum_dddict, peak_memory_lookup_key_dddict, peak_memory_lookup, target_mem, stages, sign):
+<<<<<<< HEAD
 	# sign=1 for expand / sign=-1 for shrink
+=======
+    	# sign=1 for expand / sign=-1 for shrink
+>>>>>>> origin/main
 	assert sign == -1 or sign == 1
 	stage = stages[0]
 	print(stage)
@@ -585,8 +605,11 @@ def fit_mc_num_by_peak_memory(parsed_arch, mc_num_dddict, mc_maxnum_dddict, peak
 			parsed_mc_num_list.append(mc_num_dddict[stage][block][op_idx])
 			parsed_mc_maxnum_list.append(mc_maxnum_dddict[stage][block][op_idx])
 
+<<<<<<< HEAD
 	# print(parsed_mc_num_list)
 	# print(parsed_mc_maxnum_list)
+=======
+>>>>>>> origin/main
 
 	min_parsed_mc_num = min(parsed_mc_num_list)
 

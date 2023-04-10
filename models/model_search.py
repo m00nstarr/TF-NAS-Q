@@ -133,7 +133,15 @@ class MixedOP(nn.Module):
 			#이 block에서는 위 sampling 과정을 통해 얻은 idx값을 operation으로 선택한다.
 			op = self.m_ops[idx]
 
+<<<<<<< HEAD
 			return op(x), 0
+=======
+<<<<<<< HEAD
+			return op(x), 0
+=======
+			return op(x, 3), 0
+>>>>>>> cd5ee180156a625ec89c573b0c11872e3c551875
+>>>>>>> origin/main
 
 		else:
 			weights = F.gumbel_softmax(self.log_alphas, self.T, hard=False)
@@ -153,6 +161,7 @@ class MixedOP(nn.Module):
 <<<<<<< HEAD
 			diff_peak_mem = abs(block_average_peak_mem - self.target_mem)
 			
+<<<<<<< HEAD
 =======
 			diff_peak_mem = torch.tensor(0., requires_grad=True).cuda()
 			
@@ -160,6 +169,8 @@ class MixedOP(nn.Module):
 				diff_peak_mem = block_average_peak_mem - self.target_mem
 	
 >>>>>>> cd5ee18... loss grad true
+=======
+>>>>>>> origin/main
 			idx = torch.argmax(g_weights).item()
 
 			if idx == 0:
@@ -170,6 +181,20 @@ class MixedOP(nn.Module):
 				out_ = sum( w * self.activation_quantizer_16b(op(x)) for w, op in zip(weights, self.m_ops))
 			elif idx == 3:
 				out_ = sum( w * op(x) for w, op in zip(weights, self.m_ops))
+<<<<<<< HEAD
+=======
+=======
+			diff_peak_mem = torch.tensor(0., requires_grad=True).cuda()
+			
+			if block_average_peak_mem > self.target_mem:
+				diff_peak_mem = block_average_peak_mem - self.target_mem
+	
+			idx = torch.argmax(g_weights).item()
+
+			if 0 <= idx and idx <= 3:
+				out_ = sum( w * op(x, idx) for w, op in zip(weights, self.m_ops))
+>>>>>>> cd5ee180156a625ec89c573b0c11872e3c551875
+>>>>>>> origin/main
 			else:
 				raise NotImplementedError
 
@@ -406,7 +431,11 @@ class Network(nn.Module):
 	def forward(self, x, sampling, mode='max'):
 		
 		x = self.first_stem(x)
+<<<<<<< HEAD
 		x = self.second_stem(x)
+=======
+		x = self.second_stem(x, 3)
+>>>>>>> cd5ee180156a625ec89c573b0c11872e3c551875
 
 		out_memory = 0.
 

@@ -87,6 +87,25 @@ class Network(nn.Module):
 		self.classifier = LinearLayer(1280, num_classes)
 
 		# for quantization
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+		self.activation_quantizer_16b = AsymmetricQuantizer(
+			bits_precision=16,
+            range_tracker=AveragedRangeTracker((1, 1, 1, 1))
+		)
+		
+		self.activation_quantizer_8b = AsymmetricQuantizer(
+            bits_precision=8,
+            range_tracker=AveragedRangeTracker((1, 1, 1, 1))
+        )
+
+		self.activation_quantizer_4b = AsymmetricQuantizer(
+            bits_precision=4,
+            range_tracker=AveragedRangeTracker((1, 1, 1, 1))
+        )
+=======
+>>>>>>> origin/main
 		# self.activation_quantizer_16b = AsymmetricQuantizer(
 		# 	bits_precision=16,
         #     range_tracker=AveragedRangeTracker((1, 1, 1, 1))
@@ -101,6 +120,10 @@ class Network(nn.Module):
         #     bits_precision=4,
         #     range_tracker=AveragedRangeTracker((1, 1, 1, 1))
         # )
+<<<<<<< HEAD
+=======
+>>>>>>> cd5ee180156a625ec89c573b0c11872e3c551875
+>>>>>>> origin/main
 
 		self._initialization()
 
@@ -126,11 +149,76 @@ class Network(nn.Module):
 
 	def forward(self, x):
 		x = self.first_stem(x)
+<<<<<<< HEAD
 		x = self.second_stem(x, 3)
+=======
+<<<<<<< HEAD
+		x = self.second_stem(x)
+=======
+		x = self.second_stem(x, 3)
+>>>>>>> cd5ee180156a625ec89c573b0c11872e3c551875
+>>>>>>> origin/main
 
 		for block_idx, block in enumerate(self.stage1):
 			blk_key = 'block{}'.format(block_idx+1)
 			q = self.parsed_arch['stage1'][blk_key][1]
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+			if q == 0:
+				x = self.activation_quantizer_4b(block(x))
+			elif q == 1:
+				x = self.activation_quantizer_8b(block(x))
+			elif q == 2:
+				x = self.activation_quantizer_16b(block(x))
+			else:
+				x = block(x)
+		for block_idx, block in enumerate(self.stage2):
+			blk_key = 'block{}'.format(block_idx+1)
+			q = self.parsed_arch['stage2'][blk_key][1]
+			if q == 0:
+				x = self.activation_quantizer_4b(block(x))
+			elif q == 1:
+				x = self.activation_quantizer_8b(block(x))
+			elif q == 2:
+				x = self.activation_quantizer_16b(block(x))
+			else:
+				x = block(x)
+		for block_idx, block in enumerate(self.stage3):
+			blk_key = 'block{}'.format(block_idx+1)
+			q = self.parsed_arch['stage3'][blk_key][1]
+			if q == 0:
+				x = self.activation_quantizer_4b(block(x))
+			elif q == 1:
+				x = self.activation_quantizer_8b(block(x))
+			elif q == 2:
+				x = self.activation_quantizer_16b(block(x))
+			else:
+				x = block(x)
+		for block_idx, block in enumerate(self.stage4):
+			blk_key = 'block{}'.format(block_idx+1)
+			q = self.parsed_arch['stage4'][blk_key][1]
+			if q == 0:
+				x = self.activation_quantizer_4b(block(x))
+			elif q == 1:
+				x = self.activation_quantizer_8b(block(x))
+			elif q == 2:
+				x = self.activation_quantizer_16b(block(x))
+			else:
+				x = block(x)
+		for block_idx, block in enumerate(self.stage5):
+			blk_key = 'block{}'.format(block_idx+1)
+			q = self.parsed_arch['stage5'][blk_key][1]
+			if q == 0:
+				x = self.activation_quantizer_4b(block(x))
+			elif q == 1:
+				x = self.activation_quantizer_8b(block(x))
+			elif q == 2:
+				x = self.activation_quantizer_16b(block(x))
+			else:
+				x = block(x)
+=======
+>>>>>>> origin/main
 			x = block(x, q)
 		for block_idx, block in enumerate(self.stage2):
 			blk_key = 'block{}'.format(block_idx+1)
@@ -148,6 +236,10 @@ class Network(nn.Module):
 			blk_key = 'block{}'.format(block_idx+1)
 			q = self.parsed_arch['stage5'][blk_key][1]
 			x = block(x, q)
+<<<<<<< HEAD
+=======
+>>>>>>> cd5ee180156a625ec89c573b0c11872e3c551875
+>>>>>>> origin/main
 
 		x = self.feature_mix_layer(x)
 		x = self.global_avg_pooling(x)
