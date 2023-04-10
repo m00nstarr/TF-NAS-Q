@@ -1,3 +1,5 @@
+ ** Memory lookup table을 생성 후 argument로 보내야 함.
+
 CUDA_VISIBLE_DEVICES=0 python -W ignore -u train_search.py \
 	--img_root "/home/moon/tiny-imagenet-200" \
 	--train_list "/home/moon/tiny-imagenet-200/tinyImageNet-100-trainlist.txt" \

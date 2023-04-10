@@ -43,7 +43,7 @@ parser.add_argument('--num_classes', type=int, default=1000, help='class number 
 
 args, unparsed = parser.parse_known_args()
 
-
+#quantized option added
 def main():
 	if not torch.cuda.is_available():
 		print('No GPU device available')
