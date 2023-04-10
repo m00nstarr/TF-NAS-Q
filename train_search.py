@@ -105,7 +105,7 @@ def main():
 		peak_memory_lookup = pickle.load(f)
 
 	mc_maxnum_dddict = get_mc_num_dddict(mc_mask_dddict, is_max=True)
-	model = Network(args.num_classes, mc_maxnum_dddict, target_mem = args.target_memory, memory_lookup = fake_peak_memory_lookup)
+	model = Network(args.num_classes, mc_maxnum_dddict, target_mem = args.target_memory, memory_lookup = peak_memory_lookup)
 	model = torch.nn.DataParallel(model).cuda()
 	model.module.set_temperature(args.T)
 	logging.info("param size = %fMB", count_parameters_in_MB(model))
@@ -200,7 +200,7 @@ def main():
     		
 		
 		mc_num_dddict = get_mc_num_dddict(mc_mask_dddict)
-		model = Network(args.num_classes, mc_num_dddict, target_mem = args.target_memory, memory_lookup = fake_peak_memory_lookup)
+		model = Network(args.num_classes, mc_num_dddict, target_mem = args.target_memory, memory_lookup = peak_memory_lookup)
 		model = torch.nn.DataParallel(model).cuda()
 		model.module.set_temperature(args.T)
 
@@ -271,7 +271,11 @@ def main():
 
 		# training
 		epoch_start = time.time()
+<<<<<<< HEAD
 		if epoch < 10:
+=======
+		if epoch < 0:
+>>>>>>> cd5ee18... loss grad true
 			train_acc = train_wo_arch(train_queue, model, criterion, optimizer_w)
 		else:
 			train_acc = train_w_arch(train_queue, val_queue, model, criterion, optimizer_w, optimizer_a, optimizer_g)

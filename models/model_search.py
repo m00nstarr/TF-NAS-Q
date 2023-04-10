@@ -150,8 +150,16 @@ class MixedOP(nn.Module):
 			peak_mem_list = [average_peak_mem / 8, average_peak_mem / 4, average_peak_mem / 2, average_peak_mem]
 			#peak_mem_list = [peak_mem / 8, peak_mem / 4, peak_mem / 2, peak_mem]
 			block_average_peak_mem = sum(g_w * active_mem for g_w, active_mem in zip(g_weights, peak_mem_list))
+<<<<<<< HEAD
 			diff_peak_mem = abs(block_average_peak_mem - self.target_mem)
 			
+=======
+			diff_peak_mem = torch.tensor(0., requires_grad=True).cuda()
+			
+			if block_average_peak_mem > self.target_mem:
+				diff_peak_mem = block_average_peak_mem - self.target_mem
+	
+>>>>>>> cd5ee18... loss grad true
 			idx = torch.argmax(g_weights).item()
 
 			if idx == 0:
